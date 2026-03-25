@@ -415,15 +415,14 @@ export default function GamePanel({ venueId, venueName, team, gameId, sport, onC
             {activeTab === 'score' && game && (
               <div>
                 <WinProbGauge
-                  homeProb={winProb ? winProb.homeProb : 50}
-                  awayProb={winProb ? winProb.awayProb : 50}
+                  homeProb={(function() { const kg = kalshiData?.markets?.find(function(m: any) { return m.type === 'game' && m.team === game.homeTeam; }); return kg ? kg.prob : winProb ? winProb.homeProb : 50; })()}
+                  awayProb={(function() { const kg = kalshiData?.markets?.find(function(m: any) { return m.type === 'game' && m.team === game.awayTeam; }); return kg ? kg.prob : winProb ? winProb.awayProb : 50; })()}
                   homeTeam={game.homeTeam}
                   awayTeam={game.awayTeam}
-                  source={winProb?.source}
+                  source={kalshiData?.markets?.some(function(m: any) { return m.type === 'game'; }) ? 'Kalshi' : winProb?.source}
                 />
               </div>
             )}
-
             {activeTab === 'overview' && game && (
               <div>
                 <SectionHeader title="Game Info" />
