@@ -143,6 +143,7 @@ export default function GamePanel({ venueId, venueName, team, gameId, sport, onC
   const [broadcasts, setBroadcasts] = useState<{ network: string; url: string; type: string }[]>([]);
   const [espnData, setEspnData] = useState<any>(null);
   const [analysis, setAnalysis] = useState('');
+  const [kalshiData, setKalshiData] = useState<any>(null);
   const [loadingAnalysis, setLoadingAnalysis] = useState(false);
   const [winProb, setWinProb] = useState<{ homeProb: number; awayProb: number; source: string } | null>(null);
   const [activeTab, setActiveTab] = useState<'score' | 'overview' | 'odds' | 'ai'>('score');
@@ -268,6 +269,21 @@ export default function GamePanel({ venueId, venueName, team, gameId, sport, onC
       .catch(function() {});
   }, [sport, game ? game.homeTeam : '']);
 
+
+  // 7. Kalshi prediction market data
+  useEffect(function() {
+    if (!sport || !game || !game.homeTeam) return;
+    const params = new URLSearchParams({
+      sport: sport,
+      homeTeam: game.homeTeam,
+      awayTeam: game.awayTeam,
+      gameTime: game.gameTime || new Date().toISOString(),
+    });
+    fetch('/api/kalshi?' + params.toString())
+      .then(function(r) { return r.json(); })
+      .then(function(data) { if (data.markets && data.markets.length > 0) setKalshiData(data); })
+      .catch(function() {});
+  }, [sport, game ? game.id : '']);
   function requestAnalysis() {
     if (!game) return;
     setLoadingAnalysis(true);
@@ -458,7 +474,46 @@ export default function GamePanel({ venueId, venueName, team, gameId, sport, onC
 
             {activeTab === 'odds' && (
               <div>
-                {!odds && <div style={{ color: '#475569', fontSize: '12px', textAlign: 'center', paddingTop: '16px' }}>No odds available</div>}
+                {kalshiData && kalshiData.markets && kalshiData.markets.length > 0 && (
+                  <div style={{ marginBottom: '16px' }}>
+                    <div style={{ color: '#94a3b8', fontSize: '10px', letterSpacing: '2px', padding: '12px 0 8px', textTransform: 'uppercase' as const, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ color: '#22c55e' }}>◆</span> KALSHI PREDICTION MARKET
+                    </div>
+                    {kalshiData.markets.filter(function(m: any) { return m.type === 'game'; }).map(function(m: any) {
+                      return React.createElement('div', {
+                        key: m.ticker,
+                        style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #1e3a5f' }
+                      },
+                        React.createElement('div', null,
+                          React.createElement('div', { style: { color: '#e2e8f0', fontSize: '12px', fontWeight: 'bold' } }, m.team),
+                          React.createElement('div', { style: { color: '#475569', fontSize: '10px' } }, 'Win probability')
+                        ),
+                        React.createElement('div', { style: { textAlign: 'right' as const } },
+                          React.createElement('div', { style: { color: '#22c55e', fontSize: '18px', fontWeight: 'bold' } }, m.prob + '%'),
+                          React.createElement('a', { href: m.url, target: '_blank', rel: 'noopener noreferrer', style: { color: '#475569', fontSize: '9px', textDecoration: 'none', letterSpacing: '1px' } }, 'TRADE ON KALSHI ↗')
+                        )
+                      );
+                    })}
+                    {kalshiData.markets.filter(function(m: any) { return m.type === 'championship'; }).length > 0 && (
+                      <div style={{ marginTop: '8px' }}>
+                        <div style={{ color: '#475569', fontSize: '10px', letterSpacing: '1px', padding: '8px 0 4px' }}>CHAMPIONSHIP FUTURES</div>
+                        {kalshiData.markets.filter(function(m: any) { return m.type === 'championship'; }).map(function(m: any) {
+                          return React.createElement('div', {
+                            key: m.ticker,
+                            style: { display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #1e3a5f' }
+                          },
+                            React.createElement('span', { style: { color: '#94a3b8', fontSize: '11px' } }, m.team),
+                            React.createElement('div', { style: { textAlign: 'right' as const } },
+                              React.createElement('span', { style: { color: '#f59e0b', fontSize: '11px', fontWeight: 'bold' } }, m.championshipProb + '%'),
+                              React.createElement('span', { style: { color: '#475569', fontSize: '10px' } }, ' title odds')
+                            )
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {!odds && !kalshiData && <div style={{ color: '#475569', fontSize: '12px', textAlign: 'center', paddingTop: '16px' }}>No odds available</div>}
                 {odds && bestBook && (
                   <div>
                     <SectionHeader title={'Odds - ' + bestBook.title} />
