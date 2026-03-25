@@ -2,9 +2,16 @@
 
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase/client';
+import { useEffect } from 'react';
 
 export default function AuthPage() {
   const [mode, setMode] = useState<'login' | 'signup'>('login');
+
+  useEffect(function() {
+    supabase.auth.getSession().then(function({ data: { session } }) {
+      if (session) window.location.href = '/';
+    });
+  }, []);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');

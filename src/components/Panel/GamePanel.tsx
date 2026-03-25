@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import React, { useState, useEffect } from 'react';
 import WinProbGauge from './WinProbGauge';
 
@@ -295,7 +295,7 @@ export default function GamePanel({ venueId, venueName, team, gameId, sport, onC
     })
       .then(function(r) { return r.json(); })
       .then(function(data) { setAnalysis(data.analysis || 'No analysis available'); setLoadingAnalysis(false); })
-      .catch(function() { setAnalysis('Analysis failed. Please try again.'); setLoadingAnalysis(false); });
+      .catch(function() { setAnalysis('Analysis unavailable. Add Anthropic API credits at console.anthropic.com to enable AI insights.'); setLoadingAnalysis(false); });
   }
 
   const status = getGameStatus(game);
@@ -473,6 +473,35 @@ export default function GamePanel({ venueId, venueName, team, gameId, sport, onC
 
             {activeTab === 'odds' && (
               <div>
+                {kalshiData && kalshiData.markets && odds && (() => {
+                  const gameMarkets = kalshiData.markets.filter(function(m: any) { return m.type === 'game'; });
+                  const h2h = odds?.bookmakers?.[0]?.markets?.find(function(m: any) { return m.key === 'h2h'; });
+                  if (gameMarkets.length > 0 && h2h) {
+                    function normLast(s: string) { return (s || '').split(' ').filter(Boolean).pop()?.toLowerCase() || ''; }
+                    function toProb(o: number) { return o > 0 ? 100 / (o + 100) * 100 : Math.abs(o) / (Math.abs(o) + 100) * 100; }
+                    const homeKalshi = gameMarkets.find(function(m: any) { return normLast(m.team) === normLast(game?.homeTeam || ''); });
+                    const homeBook = h2h.outcomes.find(function(o: any) { return normLast(o.name) === normLast(game?.homeTeam || ''); });
+                    if (homeKalshi && homeBook) {
+                      const kalshiPct = homeKalshi.prob;
+                      const bookPct = Math.round(toProb(homeBook.price));
+                      const edge = kalshiPct - bookPct;
+                      if (Math.abs(edge) >= 3) {
+                        return React.createElement('div', {
+                          style: { background: edge > 0 ? '#0d2a1a' : '#2a0d0d', border: '1px solid ' + (edge > 0 ? '#22c55e' : '#ef4444'), borderRadius: '6px', padding: '10px 14px', marginBottom: '12px' }
+                        },
+                          React.createElement('div', { style: { fontSize: '10px', color: '#94a3b8', letterSpacing: '2px', marginBottom: '4px' } }, '⚡ MARKET EDGE DETECTED'),
+                          React.createElement('div', { style: { fontSize: '12px', color: edge > 0 ? '#22c55e' : '#ef4444', fontWeight: 'bold' } },
+                            'Kalshi: ' + kalshiPct + '% vs Books: ' + bookPct + '% → ' + (edge > 0 ? '+' : '') + edge + '% edge on ' + (game?.homeTeam || '')
+                          ),
+                          React.createElement('div', { style: { fontSize: '10px', color: '#475569', marginTop: '2px' } },
+                            edge > 0 ? 'Prediction market implies higher probability than sportsbooks' : 'Sportsbooks imply higher probability than prediction market'
+                          )
+                        );
+                      }
+                    }
+                  }
+                  return null;
+                })()}
                 {kalshiData && kalshiData.markets && kalshiData.markets.length > 0 && (
                   <div style={{ marginBottom: '16px' }}>
                     <div style={{ color: '#94a3b8', fontSize: '10px', letterSpacing: '2px', padding: '12px 0 8px', textTransform: 'uppercase' as const, display: 'flex', alignItems: 'center', gap: '8px' }}>

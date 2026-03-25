@@ -145,9 +145,9 @@ export default function AnalyticsPage() {
                             <td style={{ padding: '8px', color: '#94a3b8', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{bet.game}</td>
                             <td style={{ padding: '8px', color: '#e2e8f0', fontWeight: 'bold' }}>{bet.pick}</td>
                             <td style={{ padding: '8px', color: '#94a3b8' }}>{bet.odds > 0 ? '+' + bet.odds : bet.odds}</td>
-                            <td style={{ padding: '8px', color: '#94a3b8' }}>\</td>
+                            <td style={{ padding: '8px', color: '#94a3b8' }}>{'$' + bet.stake.toFixed(2)}</td>
                             <td style={{ padding: '8px', color: bet.status === 'won' ? '#22c55e' : bet.status === 'lost' ? '#ef4444' : '#475569', fontWeight: 'bold', textTransform: 'uppercase' as const }}>{bet.status}</td>
-                            <td style={{ padding: '8px', color: pnlColor, fontWeight: 'bold' }}>{bet.pnl >= 0 ? '+\$' : '-\$'}{Math.abs(bet.pnl).toFixed(2)}</td>
+                            <td style={{ padding: '8px', color: pnlColor, fontWeight: 'bold' }}>{bet.pnl >= 0 ? '+$' : '-$'}{Math.abs(bet.pnl).toFixed(2)}</td>
                           </tr>
                         );
                       })}

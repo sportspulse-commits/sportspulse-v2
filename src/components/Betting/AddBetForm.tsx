@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect } from 'react';
 import { saveBet, calcPayout, BetLeague, BetType } from '@/lib/storage';
@@ -100,7 +100,7 @@ export default function AddBetForm({ onBetAdded, defaultSportsbook = 'DraftKings
     if (!selectedGame) { setError('Select a game'); return; }
     if (!selection.trim()) { setError('Select a bet'); return; }
     if (isNaN(oddsNum)) { setError('Enter valid odds'); return; }
-    if (isNaN(stakeNum) || stakeNum <= 0) { setError('Enter a valid stake'); return; }
+    if (isNaN(stakeNum) || stakeNum <= 0 || stakeNum > 100000) { setError('Enter a valid stake (between \.01 and \,000)'); return; }
     setError('');
     const league = normalizeLeague(selectedGame.league) as BetLeague;
     const betPayload = {

@@ -1,10 +1,11 @@
 ﻿'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase/client';
 
 export default function UserMenu() {
   const [user, setUser] = useState<any>(null);
   const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -15,6 +16,16 @@ export default function UserMenu() {
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    if (open) document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [open]);
 
   async function handleSignOut() {
     await supabase.auth.signOut();
@@ -33,14 +44,18 @@ export default function UserMenu() {
   const initials = (user.user_metadata?.full_name || user.email || 'U').slice(0, 2).toUpperCase();
 
   return (
-    <div style={{ position: 'relative' }}>
+    <div ref={menuRef} style={{ position: 'relative' }}>
       <button onClick={() => setOpen(o => !o)}
         style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#22c55e', border: 'none', color: '#000', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', fontFamily: 'monospace' }}>
         {initials}
       </button>
       {open && (
-        <div style={{ position: 'absolute', right: 0, top: '36px', background: '#0f1629', border: '1px solid #1e3a5f', borderRadius: '6px', padding: '8px', minWidth: '160px', zIndex: 9999 }}>
+        <div style={{ position: 'absolute', right: 0, top: '36px', background: '#0f1629', border: '1px solid #1e3a5f', borderRadius: '6px', padding: '8px', minWidth: '180px', zIndex: 9999 }}>
           <div style={{ fontSize: '10px', color: '#475569', padding: '4px 8px', marginBottom: '4px', borderBottom: '1px solid #1e3a5f', paddingBottom: '8px' }}>{user.email}</div>
+          <a href='/analytics' onClick={() => setOpen(false)}
+            style={{ display: 'block', width: '100%', padding: '6px 8px', background: 'none', border: 'none', color: '#94a3b8', fontSize: '11px', fontFamily: 'monospace', cursor: 'pointer', textDecoration: 'none', letterSpacing: '1px' }}>
+            📊 ANALYTICS
+          </a>
           <button onClick={handleSignOut}
             style={{ width: '100%', padding: '6px 8px', background: 'none', border: 'none', color: '#f87171', fontSize: '11px', fontFamily: 'monospace', cursor: 'pointer', textAlign: 'left' as const, letterSpacing: '1px' }}>
             SIGN OUT
