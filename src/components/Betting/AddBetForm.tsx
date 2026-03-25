@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { saveBet, calcPayout, BetLeague, BetType } from '@/lib/storage';
+import { saveSupabaseBet } from '@/lib/supabase-storage';
+import { supabase } from '@/lib/supabase/client';
 import { normalizeLeague, SPORT_KEYS } from '@/lib/leagues';
 
 interface AddBetFormProps {
@@ -94,26 +96,36 @@ export default function AddBetForm({ onBetAdded, defaultSportsbook = 'DraftKings
   const stakeNum = parseFloat(stake);
   const potentialPayout = (!isNaN(oddsNum) && !isNaN(stakeNum) && stakeNum > 0) ? calcPayout(stakeNum, oddsNum) : 0;
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!selectedGame) { setError('Select a game'); return; }
     if (!selection.trim()) { setError('Select a bet'); return; }
     if (isNaN(oddsNum)) { setError('Enter valid odds'); return; }
     if (isNaN(stakeNum) || stakeNum <= 0) { setError('Enter a valid stake'); return; }
     setError('');
     const league = normalizeLeague(selectedGame.league) as BetLeague;
-    saveBet({
+    const betPayload = {
       league,
+      sport: league,
+      homeTeam: selectedGame.homeTeam,
+      awayTeam: selectedGame.awayTeam,
       game: selectedGame.awayTeam + ' @ ' + selectedGame.homeTeam,
       betType: betType as BetType,
       selection: selection.trim(),
       odds: oddsNum,
       stake: stakeNum,
       sportsbook,
-      status: 'open',
+      status: 'open' as const,
       payout: undefined,
       notes: notes.trim(),
       gameId: selectedGame.id,
-    });
+      gameDate: selectedGame.gameTime ? selectedGame.gameTime.slice(0, 10) : new Date().toISOString().slice(0, 10),
+    };
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      await saveSupabaseBet(betPayload);
+    } else {
+      saveBet(betPayload);
+    }
     setSelectedGameId('');
     setSelection('');
     setOdds('');

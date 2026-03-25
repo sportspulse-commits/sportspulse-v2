@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
@@ -10,6 +10,7 @@ import BetTracker from '@/components/Betting/BetTracker';
 import WatchPanel from '@/components/Watch/WatchPanel';
 import SocialTracker from '@/components/UI/SocialTracker';
 import { SPORT_KEYS, normalizeLeague } from '@/lib/leagues';
+import UserMenu from '@/components/UI/UserMenu';
 
 const SportMap = dynamic(function() { return import('@/components/Map/SportMap'); }, { ssr: false });
 
@@ -174,7 +175,7 @@ export default function Home() {
     }),
 
     React.createElement('div', {
-      style: { position: 'absolute', top: '16px', left: '50%', transform: 'translateX(-50%)', zIndex: 999, display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' as const, justifyContent: 'center', maxWidth: '900px', background: 'rgba(10,14,26,0.85)', padding: '8px 12px', borderRadius: '8px', backdropFilter: 'blur(8px)', border: '1px solid #1e3a5f' }
+      style: { position: 'absolute', top: '16px', left: '50%', transform: 'translateX(-50%)', zIndex: 999, display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'nowrap' as const, justifyContent: 'center', maxWidth: '1200px', background: 'rgba(10,14,26,0.85)', padding: '6px 10px', borderRadius: '8px', backdropFilter: 'blur(8px)', border: '1px solid #1e3a5f' }
     },
       ALL_LEAGUES.map(function(league) {
         const isActive = activeLeagues.includes(league);
@@ -206,6 +207,7 @@ export default function Home() {
         }, league);
       }),
       React.createElement(DateSlider, { selectedDate: selectedDate, onDateChange: setSelectedDate }),
+      React.createElement(UserMenu, {}),
       React.createElement('button', {
         onClick: function() {
           setShowBetTracker(function(prev) { return !prev; });

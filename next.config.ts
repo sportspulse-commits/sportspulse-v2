@@ -1,9 +1,20 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  reactCompiler: true,
-  turbopack: {
-    root: "C:\\Users\\kpeer\\sportspulse\\sportspulse",
+  // Image optimization configuration
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "**",
+      },
+    ],
+  },
+  // Silence known harmless warnings
+  logging: {
+    fetches: {
+      fullUrl: false,
+    },
   },
 };
 
