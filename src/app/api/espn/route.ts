@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 
 function normalizeName(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -11,7 +11,7 @@ const SPORT_ESPN_MAP: Record<string, { sport: string; league: string; groups: [s
   icehockey_nhl: { sport: 'hockey', league: 'nhl', groups: ['7', '8'], confNames: ['East', 'West'] },
   americanfootball_ncaaf: { sport: 'football', league: 'college-football', groups: ['80', '81'], confNames: ['FBS', 'FCS'] },
   basketball_ncaab: { sport: 'basketball', league: 'mens-college-basketball', groups: ['50', '55'], confNames: ['East', 'West'] },
-  mma_mixed_martial_arts: { sport: 'mma', league: 'ufc', groups: [], confNames: [] },
+  mma_mixed_martial_arts: { sport: 'mma', league: 'ufc', groups: ['0', '0'] as [string, string], confNames: ['', ''] as [string, string] },
 };
 
 async function fetchTeamDetail(sport: string, league: string, teamId: string): Promise<any> {
@@ -71,7 +71,7 @@ export async function GET(request: Request) {
   const basePath = 'https://site.api.espn.com/apis/site/v2/sports/' + cfg.sport + '/' + cfg.league;
 
   // MMA/UFC has no standings
-  if (cfg.groups.length === 0) {
+  if (cfg.groups[0] === '0') {
     return NextResponse.json({ homeTeam: null, awayTeam: null, standings: [] });
   }
 
