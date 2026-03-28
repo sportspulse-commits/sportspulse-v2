@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 
 const SPORT_ESPN_MAP: Record<string, { sport: string; league: string }> = {
   americanfootball_nfl: { sport: 'football', league: 'nfl' },

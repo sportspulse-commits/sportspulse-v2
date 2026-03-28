@@ -51,7 +51,7 @@ async function fetchESPNLeague(cfg: typeof ESPN_LEAGUES[0], date: string): Promi
         statusDetail: comp?.status?.type?.shortDetail || '',
       };
     }).filter(function(g: any) {
-      return g.homeTeam && g.awayTeam && toLocalDateString(g.gameTime) === date;
+      return g.homeTeam && g.awayTeam;
     });
   } catch { return []; }
 }

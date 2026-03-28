@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, CircleMarker, Tooltip } from 'react-leaflet';
@@ -22,7 +22,7 @@ function getDotStyle(league: string, status: GameStatus, highlighted: boolean) {
   const R = 8;
   if (highlighted) return { color: '#ffffff', fillColor: '#ffffff', fillOpacity: 1, opacity: 1, radius: R, weight: 3 };
   // Only LIVE games get 100% opacity with green border
-  if (status === 'live') return { color: '#22c55e', fillColor: base, fillOpacity: 1, opacity: 1, radius: R, weight: 2 };
+  if (status === 'live') return { color: '#22c55e', fillColor: base, fillOpacity: 1, opacity: 1, radius: R + 3, weight: 3 };
   // Upcoming games: visible but clearly not live
   if (status === 'upcoming') return { color: base, fillColor: base, fillOpacity: 0.45, opacity: 0.6, radius: R, weight: 1 };
   // Final games: very dim

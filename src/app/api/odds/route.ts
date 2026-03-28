@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 const ODDS_API_KEY = process.env.ODDS_API_KEY;
 
 // SET TO TRUE when Odds API quota resets or plan upgraded
-const USE_ODDS_API = true; // Quota exhausted - flip to true when reset
+const USE_ODDS_API = false; // Quota exhausted - flip to true when reset
 
 const ESPN_SPORT_MAP: Record<string, { sport: string; league: string; groups?: string }> = {
   americanfootball_nfl: { sport: 'football', league: 'nfl' },
