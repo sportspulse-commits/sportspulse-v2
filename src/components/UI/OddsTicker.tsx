@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect } from 'react';
 import { leagueColor, normalizeLeague, SPORT_KEYS } from '@/lib/leagues';
@@ -154,6 +154,16 @@ export default function OddsTicker({ games, selectedDate, onGameSelect, onCollap
     grouped[league].push(game);
   }
 
+
+  // Sort each league: live first, then scheduled, then final
+  for (const league of Object.keys(grouped)) {
+    grouped[league].sort(function(a: any, b: any) {
+      function order(g: any) { if (g.status === 'live') return 0; if (g.status === 'scheduled') return 1; return 2; }
+      const diff = order(a) - order(b);
+      if (diff !== 0) return diff;
+      return new Date(a.gameTime).getTime() - new Date(b.gameTime).getTime();
+    });
+  }
   const hitStyle: any = { boxShadow: '0 0 6px 2px rgba(255,255,255,0.7)', borderRadius: '3px', padding: '1px 3px', color: '#fff', fontWeight: 'bold' };
   const dimStyle: any = { color: '#94a3b8' };
   const noOddsStyle: any = { color: '#475569' };
