@@ -1,7 +1,7 @@
 ﻿'use client';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase/client';
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, ReferenceLine } from 'recharts';
 
 function StatCard({ label, value, sub, color }: { label: string; value: string; sub?: string; color?: string }) {
   return (
@@ -33,6 +33,7 @@ export default function AnalyticsPage() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
+  const [viewMode, setViewMode] = useState<'current' | 'alltime'>('current');
 
   useEffect(function() {
     supabase.auth.getSession().then(async function({ data: { session } }) {
@@ -59,7 +60,12 @@ export default function AnalyticsPage() {
             <div style={{ fontSize: '18px', fontWeight: 'bold', letterSpacing: '2px' }}>ANALYTICS</div>
             <div style={{ color: '#475569', fontSize: '11px', marginTop: '2px' }}>Your betting performance</div>
           </div>
-          <a href='/' style={{ color: '#475569', fontSize: '11px', textDecoration: 'none', border: '1px solid #1e3a5f', padding: '6px 12px', borderRadius: '4px', letterSpacing: '1px' }}>← BACK</a>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            {loggedIn && data && (
+              <button onClick={() => setViewMode(v => v === 'current' ? 'alltime' : 'current')} style={{ padding: '6px 12px', background: 'none', border: '1px solid #1e3a5f', color: '#94a3b8', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontFamily: 'monospace', letterSpacing: '1px' }}>{viewMode === 'current' ? 'ALL TIME' : 'CURRENT'}</button>
+            )}
+            <a href='/' style={{ color: '#475569', fontSize: '11px', textDecoration: 'none', border: '1px solid #1e3a5f', padding: '6px 12px', borderRadius: '4px', letterSpacing: '1px' }}>← BACK</a>
+          </div>
         </div>
 
         {loading && <div style={{ color: '#475569', textAlign: 'center', padding: '64px' }}>Loading analytics...</div>}
@@ -68,7 +74,7 @@ export default function AnalyticsPage() {
         {!loading && loggedIn && data && s && (
           <div>
             <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', flexWrap: 'wrap' as const }}>
-              <StatCard label='Win Rate' value={s.winRate + '%'} sub={s.wonBets + 'W - ' + s.lostBets + 'L'} color={s.winRate >= 50 ? '#22c55e' : '#f87171'} />
+              <StatCard label='Win Rate' value={s.winRate + '%'} sub={s.wonBets + 'W - ' + s.lostBets + 'L' + (s.pushBets > 0 ? ' - ' + s.pushBets + 'P' : '')} color={s.winRate >= 50 ? '#22c55e' : '#f87171'} />
               <StatCard label='ROI' value={(s.roi >= 0 ? '+' : '') + s.roi + '%'} sub={'on $' + s.totalStaked + ' staked'} color={roiColor} />
               <StatCard label='Total P&L' value={(s.pnl >= 0 ? '+$' : '-$') + Math.abs(s.pnl).toFixed(2)} sub={s.settledBets + ' settled bets'} color={pnlColor} />
               <StatCard label='Streak' value={streakLabel} sub={s.pendingBets + ' pending'} />
@@ -79,10 +85,17 @@ export default function AnalyticsPage() {
                 <div style={{ color: '#94a3b8', fontSize: '10px', letterSpacing: '2px', marginBottom: '16px' }}>P&L OVER TIME</div>
                 <ResponsiveContainer width='100%' height={200}>
                   <LineChart data={data.pnlOverTime}>
+                    <defs>
+                      <linearGradient id='pnlGradient' x1='0' y1='0' x2='0' y2='1'>
+                        <stop offset='0%' stopColor='#22c55e' />
+                        <stop offset='100%' stopColor='#ef4444' />
+                      </linearGradient>
+                    </defs>
                     <XAxis dataKey='date' tick={{ fill: '#475569', fontSize: 10 }} />
                     <YAxis tick={{ fill: '#475569', fontSize: 10 }} />
-                    <Tooltip contentStyle={{ background: '#0f1629', border: '1px solid #1e3a5f', borderRadius: '4px', fontFamily: 'monospace', fontSize: '11px' }} formatter={function(value: any) { return ['$' + value, 'P&L']; }} />
-                    <Line type='monotone' dataKey='pnl' stroke={s.pnl >= 0 ? '#22c55e' : '#ef4444'} strokeWidth={2} dot={false} />
+                    <Tooltip contentStyle={{ background: '#0f1629', border: '1px solid #1e3a5f', borderRadius: '4px', fontFamily: 'monospace', fontSize: '11px', color: '#e2e8f0' }} itemStyle={{ color: '#22c55e' }} labelStyle={{ color: '#94a3b8' }} formatter={function(value: any) { return ['$' + value, 'P&L']; }} />
+                    <ReferenceLine y={0} stroke='#475569' strokeDasharray='4 2' strokeWidth={1} />
+                    <Line type='monotone' dataKey='pnl' stroke='url(#pnlGradient)' strokeWidth={2} dot={false} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -99,9 +112,9 @@ export default function AnalyticsPage() {
                     <BarChart data={data.byLeague} layout='vertical'>
                       <XAxis type='number' domain={[0, 100]} tick={{ fill: '#475569', fontSize: 10 }} />
                       <YAxis type='category' dataKey='league' tick={{ fill: '#94a3b8', fontSize: 10 }} width={50} />
-                      <Tooltip contentStyle={{ background: '#0f1629', border: '1px solid #1e3a5f', fontFamily: 'monospace', fontSize: '11px' }} formatter={function(v: any) { return [v + '%', 'Win Rate']; }} />
+                      <Tooltip contentStyle={{ background: '#0f1629', border: '1px solid #1e3a5f', fontFamily: 'monospace', fontSize: '11px', color: '#e2e8f0' }} itemStyle={{ color: '#22c55e' }} labelStyle={{ color: '#94a3b8' }} formatter={function(v: any) { return [v + '%', 'Win Rate']; }} />
                       <Bar dataKey='winRate' radius={2}>
-                        {data.byLeague.map(function(entry: any, i: number) { return <Cell key={i} fill={entry.winRate >= 50 ? '#22c55e' : '#ef4444'} />; })}
+                        {data.byLeague.map(function(entry: any, i: number) { return <Cell key={i} fill='#22c55e' />; })}
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
@@ -114,9 +127,9 @@ export default function AnalyticsPage() {
                     <BarChart data={data.byBetType} layout='vertical'>
                       <XAxis type='number' domain={[0, 100]} tick={{ fill: '#475569', fontSize: 10 }} />
                       <YAxis type='category' dataKey='type' tick={{ fill: '#94a3b8', fontSize: 10 }} width={70} />
-                      <Tooltip contentStyle={{ background: '#0f1629', border: '1px solid #1e3a5f', fontFamily: 'monospace', fontSize: '11px' }} formatter={function(v: any) { return [v + '%', 'Win Rate']; }} />
+                      <Tooltip contentStyle={{ background: '#0f1629', border: '1px solid #1e3a5f', fontFamily: 'monospace', fontSize: '11px', color: '#e2e8f0' }} itemStyle={{ color: '#22c55e' }} labelStyle={{ color: '#94a3b8' }} formatter={function(v: any) { return [v + '%', 'Win Rate']; }} />
                       <Bar dataKey='winRate' radius={2}>
-                        {data.byBetType.map(function(entry: any, i: number) { return <Cell key={i} fill={entry.winRate >= 50 ? '#22c55e' : '#ef4444'} />; })}
+                        {data.byBetType.map(function(entry: any, i: number) { return <Cell key={i} fill='#22c55e' />; })}
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>

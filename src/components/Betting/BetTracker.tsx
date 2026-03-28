@@ -9,7 +9,13 @@ interface Archive { id: string; title: string; createdAt: string; bets: Bet[]; }
 interface BetTrackerProps { onClose: () => void; defaultSportsbook?: string; allGames?: any[]; allOdds?: Record<string, any>; }
 
 function fmtOdds(o: number): string { return o > 0 ? '+' + o : '' + o; }
-function fmtMoney(n: number): string { return (n >= 0 ? '+$' : '-$') + Math.abs(n).toFixed(2); }
+function fmtMoney(n: number): string {
+  const abs = Math.abs(n);
+  const sign = n >= 0 ? '+$' : '-$';
+  if (abs >= 1000000) return sign + (abs / 1000000).toFixed(2) + 'M';
+  if (abs >= 1000) return sign + (abs / 1000).toFixed(1) + 'K';
+  return sign + abs.toFixed(2);
+}
 
 function StatCard({ label, value, color }: { label: string; value: string; color?: string }) {
   return React.createElement('div', { style: { background: '#0f1629', border: '1px solid #1e3a5f', borderRadius: '6px', padding: '10px 12px', flex: 1, minWidth: '80px' } },

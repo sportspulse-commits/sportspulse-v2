@@ -28,7 +28,9 @@ export async function GET(request: Request) {
   const totalLost = lost.reduce(function(s, b) { return s + Number(b.stake); }, 0);
   const pnl = totalPayout - totalLost;
   const roi = totalStaked > 0 ? (pnl / totalStaked) * 100 : 0;
-  const winRate = settled.length > 0 ? (won.length / settled.length) * 100 : 0;
+  const push = allBets.filter(function(b) { return b.status === 'push'; });
+  const settledNoPush = settled.filter(function(b) { return b.status !== 'push'; });
+  const winRate = settledNoPush.length > 0 ? (won.length / settledNoPush.length) * 100 : 0;
   let running = 0;
   const pnlOverTime = settled.map(function(b) {
     const gain = b.status === 'won' ? Number(b.payout || 0) : b.status === 'lost' ? -Number(b.stake) : 0;
@@ -69,7 +71,7 @@ export async function GET(request: Request) {
   return NextResponse.json({
     summary: {
       totalBets: allBets.length, settledBets: settled.length,
-      pendingBets: pending.length, wonBets: won.length, lostBets: lost.length,
+      pendingBets: pending.length, wonBets: won.length, lostBets: lost.length, pushBets: push.length,
       totalStaked: Math.round(totalStaked * 100) / 100,
       totalPayout: Math.round(totalPayout * 100) / 100,
       pnl: Math.round(pnl * 100) / 100,
