@@ -154,7 +154,7 @@ export async function GET(request: Request) {
           prob: midpoint,
           yesBid, yesAsk,
           volume: m.volume_fp,
-          url: 'https://kalshi.com/markets/' + (m.event_ticker || '').toLowerCase(),
+          url: 'https://kalshi.com/markets/kxnbagame/professional-basketball-game/' + (m.event_ticker || '').toLowerCase(),
         });
       }
     }
@@ -177,7 +177,7 @@ export async function GET(request: Request) {
           yesBid: m.yes_bid_dollars,
           yesAsk: m.yes_ask_dollars,
           volume: m.volume_fp,
-          url: 'https://kalshi.com/markets/' + m.ticker,
+          url: 'https://kalshi.com/markets/' + (m.event_ticker || m.ticker || '').toLowerCase().split('-')[0] + '/' + (m.event_ticker || m.ticker || '').toLowerCase(),
         });
       }
     }
