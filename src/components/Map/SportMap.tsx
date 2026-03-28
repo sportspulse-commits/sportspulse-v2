@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, CircleMarker, Tooltip } from 'react-leaflet';
@@ -167,7 +167,7 @@ export default function SportMap({ games, onVenueSelect, activeLeagues, selected
       const dotStyle = getDotStyle(venue.league, status, highlighted);
       const color = leagueColor(venue.league);
       return React.createElement(AutoTooltipMarker, {
-        key: venue.id,
+        key: venue.id + '-' + status + '-' + highlighted,
         center: [venue.lat, venue.lng] as [number, number],
         dotStyle,
         isHighlighted: highlighted,
