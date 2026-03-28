@@ -24,6 +24,7 @@ export default function AddBetForm({ onBetAdded, defaultSportsbook = "DraftKings
   const [sportsbook, setSportsbook] = useState(defaultSportsbook);
   const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const [oddsMap, setOddsMap] = useState<Record<string, any>>({});
 
   useEffect(function() { setSportsbook(defaultSportsbook); }, [defaultSportsbook]);
@@ -100,12 +101,14 @@ export default function AddBetForm({ onBetAdded, defaultSportsbook = "DraftKings
   }
 
   async function handleSubmit() {
+    if (submitting) return;
+    setSubmitting(false);
     if (!isManualMode && !selectedGame) { setError("Select a game"); return; }
     if (isManualMode && !manualBetName.trim()) { setError("Enter a bet name"); return; }
     if (!selection.trim()) { setError("Enter your pick"); return; }
     if (isNaN(oddsNum) || (oddsNum > -100 && oddsNum < 100)) { setError("Odds must be +100 or greater, or -100 or less (e.g. -110, +150)"); return; }
     if (isNaN(stakeNum) || stakeNum <= 0) { setError("Enter a valid stake greater than zero"); return; }
-    setError("");
+    setError(""); setSubmitting(true);
 
     const league = (isManualMode ? "NBA" : normalizeLeague(selectedGame!.league)) as BetLeague;
     const gameName = isManualMode ? manualBetName.trim() : (selectedGame!.awayTeam + " @ " + selectedGame!.homeTeam);
