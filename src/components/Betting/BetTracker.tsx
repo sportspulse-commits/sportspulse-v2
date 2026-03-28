@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import React, { useState, useEffect } from 'react';
 import { getBets, updateBet, deleteBet, getPortfolioStats, getArchives, archiveAndReset, calcPayout, Bet, Archive } from '@/lib/storage';
 import { getSupabaseBets, updateSupabaseBet, deleteSupabaseBet } from '@/lib/supabase-storage';
@@ -53,8 +53,10 @@ export default function BetTracker({ onClose, defaultSportsbook = 'DraftKings', 
   useEffect(function() { reload(); }, []);
 
   const stats = getPortfolioStats(bets);
-  const allBets = [...bets, ...archives.flatMap(function(a) { return a.bets; })];
+  const archiveBets = archives.flatMap(function(a) { return a.bets; });
+  const allBets = [...bets, ...archiveBets];
   const allTimeStats = getPortfolioStats(allBets);
+  const currentStats = getPortfolioStats(bets.filter(function(b) { return b.status !== 'open' || true; }));
   const displayStats = viewMode === 'current' ? stats : allTimeStats;
   const openBets = bets.filter(function(b) { return b.status === 'open'; });
   const settledBets = bets.filter(function(b) { return b.status !== 'open'; });
@@ -218,9 +220,20 @@ export default function BetTracker({ onClose, defaultSportsbook = 'DraftKings', 
           React.createElement('button', {
             onClick: function() {
               if (!archiveTitle.trim()) return;
-              archiveAndReset(archiveTitle.trim());
-              setArchiveTitle('');
-              reload();
+              supabase.auth.getSession().then(function({ data: { session } }) {
+                if (session) {
+                  // For logged-in users: just save archive to localStorage with current Supabase bets
+                  const archive = { id: Date.now().toString(36), title: archiveTitle.trim(), createdAt: new Date().toISOString(), bets: bets };
+                  const existing = (() => { try { return JSON.parse(localStorage.getItem('sportspulse_archives_v1') || '[]'); } catch { return []; } })();
+                  localStorage.setItem('sportspulse_archives_v1', JSON.stringify([archive, ...existing]));
+                  setArchiveTitle('');
+                  setArchives([archive, ...existing]);
+                } else {
+                  archiveAndReset(archiveTitle.trim());
+                  setArchiveTitle('');
+                  reload();
+                }
+              });
             },
             style: { width: '100%', padding: '8px', background: '#1e3a5f', border: 'none', color: '#e2e8f0', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontFamily: 'monospace', letterSpacing: '1px' }
           }, 'ARCHIVE & RESET')

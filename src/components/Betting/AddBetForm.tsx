@@ -100,7 +100,7 @@ export default function AddBetForm({ onBetAdded, defaultSportsbook = 'DraftKings
     if (!selectedGame) { setError('Select a game'); return; }
     if (!selection.trim()) { setError('Select a bet'); return; }
     if (isNaN(oddsNum)) { setError('Enter valid odds'); return; }
-    if (isNaN(stakeNum) || stakeNum <= 0 || stakeNum > 100000) { setError('Enter a valid stake (between \.01 and \,000)'); return; }
+    if (isNaN(stakeNum) || stakeNum <= 0 || stakeNum > 100000) { setError('Enter a valid stake greater than zero'); return; }
     setError('');
     const league = normalizeLeague(selectedGame.league) as BetLeague;
     const betPayload = {
