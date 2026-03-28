@@ -44,7 +44,7 @@ export default function AuthPage() {
     <main style={{ width: '100vw', height: '100vh', background: '#0a0e1a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'monospace' }}>
       <div style={{ width: '380px', background: '#0f1629', border: '1px solid #1e3a5f', borderRadius: '8px', padding: '32px' }}>
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <div style={{ fontSize: '22px', fontWeight: 'bold', color: '#e2e8f0', letterSpacing: '2px' }}>SPORTSPULSE</div>
+          <a href='/' style={{ fontSize: '22px', fontWeight: 'bold', color: '#e2e8f0', letterSpacing: '2px', textDecoration: 'none', display: 'block' }}>SPORTSPULSE</a>
           <div style={{ fontSize: '11px', color: '#475569', letterSpacing: '2px', marginTop: '4px' }}>PREDICTION MARKET ANALYTICS</div>
         </div>
         <div style={{ display: 'flex', marginBottom: '24px', border: '1px solid #1e3a5f', borderRadius: '4px', overflow: 'hidden' }}>

@@ -13,17 +13,33 @@ function StatCard({ label, value, sub, color }: { label: string; value: string; 
   );
 }
 
+function AuthPrompt() {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+      <div style={{ background: '#0f1629', border: '1px solid #1e3a5f', borderRadius: '8px', padding: '40px', width: '360px', textAlign: 'center' as const }}>
+        <div style={{ fontSize: '32px', marginBottom: '16px' }}>{'🔒'}</div>
+        <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#e2e8f0', marginBottom: '8px', letterSpacing: '1px', fontFamily: 'monospace' }}>LOG IN TO VIEW ANALYTICS</div>
+        <div style={{ color: '#475569', fontSize: '12px', marginBottom: '24px', fontFamily: 'monospace' }}>Track your win rate, ROI, and P&L over time.</div>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <a href='/auth' style={{ flex: 1, display: 'block', padding: '10px', background: '#22c55e', color: '#000', borderRadius: '4px', fontSize: '12px', fontFamily: 'monospace', fontWeight: 'bold', letterSpacing: '1px', textDecoration: 'none', textAlign: 'center' as const }}>LOG IN</a>
+          <a href='/auth' style={{ flex: 1, display: 'block', padding: '10px', background: 'transparent', color: '#22c55e', border: '1px solid #22c55e', borderRadius: '4px', fontSize: '12px', fontFamily: 'monospace', fontWeight: 'bold', letterSpacing: '1px', textDecoration: 'none', textAlign: 'center' as const }}>SIGN UP</a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AnalyticsPage() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
 
   useEffect(function() {
     supabase.auth.getSession().then(async function({ data: { session } }) {
-      if (!session) { setError('Please log in to view analytics.'); setLoading(false); return; }
+      if (!session) { setLoggedIn(false); setLoading(false); return; }
+      setLoggedIn(true);
       const res = await fetch('/api/analytics', { headers: { Authorization: 'Bearer ' + session.access_token } });
       const json = await res.json();
-      if (json.error) { setError(json.error); setLoading(false); return; }
       setData(json);
       setLoading(false);
     });
@@ -37,9 +53,9 @@ export default function AnalyticsPage() {
   return (
     <main style={{ minHeight: '100vh', background: '#0a0e1a', color: '#e2e8f0', fontFamily: 'monospace', padding: '24px' }}>
       <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
-
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
           <div>
+            <a href='/' style={{ fontSize: '11px', color: '#22c55e', letterSpacing: '3px', marginBottom: '2px', textDecoration: 'none', display: 'block' }}>SPORTSPULSE</a>
             <div style={{ fontSize: '18px', fontWeight: 'bold', letterSpacing: '2px' }}>ANALYTICS</div>
             <div style={{ color: '#475569', fontSize: '11px', marginTop: '2px' }}>Your betting performance</div>
           </div>
@@ -47,11 +63,10 @@ export default function AnalyticsPage() {
         </div>
 
         {loading && <div style={{ color: '#475569', textAlign: 'center', padding: '64px' }}>Loading analytics...</div>}
-        {error && <div style={{ color: '#ef4444', textAlign: 'center', padding: '64px' }}>{error}</div>}
+        {!loading && loggedIn === false && <AuthPrompt />}
 
-        {data && s && (
+        {!loading && loggedIn && data && s && (
           <div>
-            {/* Top stats row */}
             <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', flexWrap: 'wrap' as const }}>
               <StatCard label='Win Rate' value={s.winRate + '%'} sub={s.wonBets + 'W - ' + s.lostBets + 'L'} color={s.winRate >= 50 ? '#22c55e' : '#f87171'} />
               <StatCard label='ROI' value={(s.roi >= 0 ? '+' : '') + s.roi + '%'} sub={'on $' + s.totalStaked + ' staked'} color={roiColor} />
@@ -59,7 +74,6 @@ export default function AnalyticsPage() {
               <StatCard label='Streak' value={streakLabel} sub={s.pendingBets + ' pending'} />
             </div>
 
-            {/* P&L Chart */}
             {data.pnlOverTime && data.pnlOverTime.length > 1 && (
               <div style={{ background: '#0f1629', border: '1px solid #1e3a5f', borderRadius: '8px', padding: '20px', marginBottom: '20px' }}>
                 <div style={{ color: '#94a3b8', fontSize: '10px', letterSpacing: '2px', marginBottom: '16px' }}>P&L OVER TIME</div>
@@ -67,24 +81,17 @@ export default function AnalyticsPage() {
                   <LineChart data={data.pnlOverTime}>
                     <XAxis dataKey='date' tick={{ fill: '#475569', fontSize: 10 }} />
                     <YAxis tick={{ fill: '#475569', fontSize: 10 }} />
-                    <Tooltip
-                      contentStyle={{ background: '#0f1629', border: '1px solid #1e3a5f', borderRadius: '4px', fontFamily: 'monospace', fontSize: '11px' }}
-                      formatter={function(value: any) { return ['$' + value, 'P&L']; }}
-                    />
+                    <Tooltip contentStyle={{ background: '#0f1629', border: '1px solid #1e3a5f', borderRadius: '4px', fontFamily: 'monospace', fontSize: '11px' }} formatter={function(value: any) { return ['$' + value, 'P&L']; }} />
                     <Line type='monotone' dataKey='pnl' stroke={s.pnl >= 0 ? '#22c55e' : '#ef4444'} strokeWidth={2} dot={false} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
             )}
             {data.pnlOverTime && data.pnlOverTime.length <= 1 && (
-              <div style={{ background: '#0f1629', border: '1px solid #1e3a5f', borderRadius: '8px', padding: '20px', marginBottom: '20px', textAlign: 'center' as const, color: '#475569', fontSize: '12px' }}>
-                Settle more bets to see your P&L chart
-              </div>
+              <div style={{ background: '#0f1629', border: '1px solid #1e3a5f', borderRadius: '8px', padding: '20px', marginBottom: '20px', textAlign: 'center' as const, color: '#475569', fontSize: '12px' }}>Settle more bets to see your P&L chart</div>
             )}
 
-            {/* League + Bet Type breakdown */}
             <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', flexWrap: 'wrap' as const }}>
-
               {data.byLeague && data.byLeague.length > 0 && (
                 <div style={{ background: '#0f1629', border: '1px solid #1e3a5f', borderRadius: '8px', padding: '20px', flex: 1, minWidth: '280px' }}>
                   <div style={{ color: '#94a3b8', fontSize: '10px', letterSpacing: '2px', marginBottom: '16px' }}>WIN RATE BY LEAGUE</div>
@@ -94,15 +101,12 @@ export default function AnalyticsPage() {
                       <YAxis type='category' dataKey='league' tick={{ fill: '#94a3b8', fontSize: 10 }} width={50} />
                       <Tooltip contentStyle={{ background: '#0f1629', border: '1px solid #1e3a5f', fontFamily: 'monospace', fontSize: '11px' }} formatter={function(v: any) { return [v + '%', 'Win Rate']; }} />
                       <Bar dataKey='winRate' radius={2}>
-                        {data.byLeague.map(function(entry: any, i: number) {
-                          return <Cell key={i} fill={entry.winRate >= 50 ? '#22c55e' : '#ef4444'} />;
-                        })}
+                        {data.byLeague.map(function(entry: any, i: number) { return <Cell key={i} fill={entry.winRate >= 50 ? '#22c55e' : '#ef4444'} />; })}
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
               )}
-
               {data.byBetType && data.byBetType.length > 0 && (
                 <div style={{ background: '#0f1629', border: '1px solid #1e3a5f', borderRadius: '8px', padding: '20px', flex: 1, minWidth: '280px' }}>
                   <div style={{ color: '#94a3b8', fontSize: '10px', letterSpacing: '2px', marginBottom: '16px' }}>WIN RATE BY BET TYPE</div>
@@ -112,9 +116,7 @@ export default function AnalyticsPage() {
                       <YAxis type='category' dataKey='type' tick={{ fill: '#94a3b8', fontSize: 10 }} width={70} />
                       <Tooltip contentStyle={{ background: '#0f1629', border: '1px solid #1e3a5f', fontFamily: 'monospace', fontSize: '11px' }} formatter={function(v: any) { return [v + '%', 'Win Rate']; }} />
                       <Bar dataKey='winRate' radius={2}>
-                        {data.byBetType.map(function(entry: any, i: number) {
-                          return <Cell key={i} fill={entry.winRate >= 50 ? '#22c55e' : '#ef4444'} />;
-                        })}
+                        {data.byBetType.map(function(entry: any, i: number) { return <Cell key={i} fill={entry.winRate >= 50 ? '#22c55e' : '#ef4444'} />; })}
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
@@ -122,18 +124,13 @@ export default function AnalyticsPage() {
               )}
             </div>
 
-            {/* Recent bets table */}
             {data.recentBets && data.recentBets.length > 0 && (
               <div style={{ background: '#0f1629', border: '1px solid #1e3a5f', borderRadius: '8px', padding: '20px' }}>
                 <div style={{ color: '#94a3b8', fontSize: '10px', letterSpacing: '2px', marginBottom: '16px' }}>RECENT SETTLED BETS</div>
                 <div style={{ overflowX: 'auto' as const }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse' as const, fontSize: '11px' }}>
                     <thead>
-                      <tr>
-                        {['Date', 'Game', 'Pick', 'Odds', 'Stake', 'Result', 'P&L'].map(function(h) {
-                          return <th key={h} style={{ color: '#475569', textAlign: 'left' as const, padding: '6px 8px', borderBottom: '1px solid #1e3a5f', letterSpacing: '1px' }}>{h}</th>;
-                        })}
-                      </tr>
+                      <tr>{['Date', 'Game', 'Pick', 'Odds', 'Stake', 'Result', 'P&L'].map(function(h) { return <th key={h} style={{ color: '#475569', textAlign: 'left' as const, padding: '6px 8px', borderBottom: '1px solid #1e3a5f', letterSpacing: '1px' }}>{h}</th>; })}</tr>
                     </thead>
                     <tbody>
                       {data.recentBets.map(function(bet: any) {
@@ -156,7 +153,6 @@ export default function AnalyticsPage() {
                 </div>
               </div>
             )}
-
             {data.recentBets && data.recentBets.length === 0 && (
               <div style={{ background: '#0f1629', border: '1px solid #1e3a5f', borderRadius: '8px', padding: '40px', textAlign: 'center' as const, color: '#475569' }}>
                 <div style={{ fontSize: '32px', marginBottom: '12px' }}>📊</div>
