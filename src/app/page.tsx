@@ -208,7 +208,7 @@ export default function Home() {
       }),
       React.createElement(DateSlider, { selectedDate: selectedDate, onDateChange: setSelectedDate }),
       React.createElement('a', { href: '/analytics', style: { padding: '5px 12px', borderRadius: '4px', border: '1px solid #1e3a5f', background: '#0f1629', color: '#94a3b8', fontFamily: 'monospace', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', letterSpacing: '1px', textDecoration: 'none', display: 'inline-block' } }, 'ANALYTICS'),
-      React.createElement(UserMenu, {}),
+
       React.createElement('button', {
         onClick: function() {
           setShowBetTracker(function(prev) { return !prev; });
