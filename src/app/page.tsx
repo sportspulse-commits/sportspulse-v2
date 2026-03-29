@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
@@ -164,7 +164,8 @@ export default function Home() {
     setShowWatch(false);
   };
 
-  return React.createElement('main', { style: { width: '100vw', height: '100vh', background: '#0a0e1a' } },
+  return React.createElement('main', { className: tickerCollapsed ? 'sidebar-collapsed' : '', style: { width: '100vw', height: '100vh', background: '#0a0e1a' } },
+    React.createElement('style', null, '.leaflet-top.leaflet-left { left: ' + (tickerCollapsed ? '52' : '316') + 'px !important; top: 60px !important; }'),
 
     React.createElement(OddsTicker, {
       games: allGames,
@@ -264,6 +265,7 @@ export default function Home() {
     }),
 
     React.createElement(NewsScroller, { articles: newsArticles }),
+    React.createElement('div', { style: { position: 'fixed', top: '16px', right: selectedVenue ? '396px' : showBetTracker ? '436px' : showWatch ? '416px' : '16px', zIndex: 1002, transition: 'right 0.3s ease' } }, React.createElement(UserMenu, {})),
 
     selectedVenue && React.createElement(GamePanel, {
       key: selectedVenue.gameId || selectedVenue.venueId,
