@@ -44,14 +44,39 @@ export default function BetTracker({ onClose, defaultSportsbook = 'DraftKings', 
   const [selectedArchiveId, setSelectedArchiveId] = useState<string | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
+  async function autoSettle(openBets: Bet[]) {
+    const betsWithGame = openBets.filter(function(b) { return b.gameId && b.betType !== 'prop'; });
+    if (betsWithGame.length === 0) return;
+    try {
+      const res = await fetch('/api/settlement', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bets: betsWithGame.map(function(b) { return { id: b.id, gameId: b.gameId, league: b.league, betType: b.betType, selection: b.selection }; }) }),
+      });
+      const data = await res.json();
+      const session = (await supabase.auth.getSession()).data.session;
+      if (!session) return;
+      const toSettle = (data.results || []).filter(function(r: any) { return r.result !== null; });
+      if (toSettle.length === 0) return;
+      await Promise.all(toSettle.map(function(r: any) {
+        const bet = betsWithGame.find(function(b) { return b.id === r.id; });
+        if (!bet) return Promise.resolve();
+        const payout = r.result === 'won' ? calcPayout(bet.stake, bet.odds) : r.result === 'push' ? bet.stake : 0;
+        return updateSupabaseBet(bet.id, { status: r.result, payout });
+      }));
+    } catch {}
+  }
+
   async function reload() {
     const { data: { session } } = await supabase.auth.getSession();
     setIsLoggedIn(!!session);
     if (session) {
       const b = await getSupabaseBets();
-      setBets(b);
+      const openBets = b.filter(function(bet) { return bet.status === 'open'; });
+      await autoSettle(openBets);
+      const refreshed = await getSupabaseBets();
+      setBets(refreshed);
     } else {
-      // Clear any locally stored bets for logged-out users
       localStorage.removeItem('sportspulse_bets_v1');
       setBets([]);
     }
@@ -72,7 +97,7 @@ export default function BetTracker({ onClose, defaultSportsbook = 'DraftKings', 
   const settledBets = currentBets.filter(function(b) { return b.status !== 'open'; });
 
   function settle(bet: Bet, result: 'won' | 'lost' | 'push') {
-    const payout = result === 'won' ? calcPayout(bet.stake, bet.odds) : 0;
+    const payout = result === 'won' ? calcPayout(bet.stake, bet.odds) : result === 'push' ? bet.stake : 0;
     supabase.auth.getSession().then(function({ data: { session } }) {
       if (session) {
         updateSupabaseBet(bet.id, { status: result, payout }).then(function() { setSettlingId(null); reload(); });
@@ -152,7 +177,7 @@ export default function BetTracker({ onClose, defaultSportsbook = 'DraftKings', 
         openBets.length === 0
           ? React.createElement('div', { style: { padding: '32px 16px', textAlign: 'center' as const, color: '#475569', fontSize: '12px' } }, 'No open bets. Click + Add to log one.')
           : openBets.map(function(bet) {
-              var toWin = calcPayout(bet.stake, bet.odds);
+                var toWin = calcPayout(bet.stake, bet.odds) - bet.stake;
               var isSettling = settlingId === bet.id;
               return React.createElement('div', { key: bet.id, style: { padding: '12px 16px', borderBottom: '1px solid #1e3a5f', background: isSettling ? '#162040' : 'transparent' } },
                 React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: '4px' } },

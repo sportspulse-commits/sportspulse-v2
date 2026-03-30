@@ -1,5 +1,5 @@
-﻿import { supabase } from '@/lib/supabase/client';
-import { Bet, calcPayout, getPortfolioStats } from '@/lib/storage';
+import { Bet, calcPayout, calcProfit, getPortfolioStats } from '@/lib/storage';
+import { supabase } from '@/lib/supabase/client';
 
 function mapDbBet(b: any): Bet {
   return {
@@ -76,4 +76,4 @@ export async function deleteSupabaseBet(id: string): Promise<void> {
   if (error) console.error('deleteSupabaseBet error:', error);
 }
 
-export { calcPayout, getPortfolioStats };
+export { calcPayout, calcProfit, getPortfolioStats };

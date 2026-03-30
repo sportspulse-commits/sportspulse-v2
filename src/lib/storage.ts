@@ -99,10 +99,15 @@ export function archiveAndReset(title: string): void {
 }
 
 export function calcPayout(stake: number, odds: number): number {
+  if (odds > 0) return stake + stake * (odds / 100);
+  return stake + stake * (100 / Math.abs(odds));
+}
+
+
+export function calcProfit(stake: number, odds: number): number {
   if (odds > 0) return stake * (odds / 100);
   return stake * (100 / Math.abs(odds));
 }
-
 export function getPortfolioStats(bets: Bet[], openBetsOverride?: number): PortfolioStats {
   const normalized = bets.map(normalizeBet);
   const settled = normalized.filter(function(b) { return b.status === 'won' || b.status === 'lost' || b.status === 'push'; });

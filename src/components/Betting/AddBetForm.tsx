@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { saveBet, calcPayout, BetLeague, BetType } from '@/lib/storage';
+import { saveBet, calcProfit, BetLeague, BetType } from '@/lib/storage';
 import { saveSupabaseBet } from '@/lib/supabase-storage';
 import { supabase } from '@/lib/supabase/client';
 import { normalizeLeague } from '@/lib/leagues';
@@ -86,7 +86,7 @@ export default function AddBetForm({ onBetAdded, defaultSportsbook = "DraftKings
 
   const oddsNum = parseFloat(odds);
   const stakeNum = parseFloat(stake);
-  const potentialPayout = (!isNaN(oddsNum) && !isNaN(stakeNum) && stakeNum > 0) ? calcPayout(stakeNum, oddsNum) : 0;
+  const potentialPayout = (!isNaN(oddsNum) && !isNaN(stakeNum) && stakeNum > 0) ? calcProfit(stakeNum, oddsNum) : 0;
 
   function resetForm() {
     setSelectedGameId("");
