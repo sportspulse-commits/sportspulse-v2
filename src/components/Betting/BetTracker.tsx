@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 import React, { useState, useEffect } from 'react';
 import { getBets, updateBet, deleteBet, getPortfolioStats, calcPayout, Bet } from '@/lib/storage';
 import { getSupabaseBets, updateSupabaseBet, deleteSupabaseBet } from '@/lib/supabase-storage';
@@ -65,7 +65,7 @@ export default function BetTracker({ onClose, defaultSportsbook = 'DraftKings', 
   const allHistoricalBets = [...currentBets, ...archiveBets];
 
   const currentStats = getPortfolioStats(currentBets);
-  const allTimeStats = getPortfolioStats(allHistoricalBets);
+  const allTimeStats = getPortfolioStats(allHistoricalBets, currentStats.openBets);
   const displayStats = viewMode === 'current' ? currentStats : allTimeStats;
 
   const openBets = currentBets.filter(function(b) { return b.status === 'open'; });
@@ -185,6 +185,32 @@ export default function BetTracker({ onClose, defaultSportsbook = 'DraftKings', 
       ),
 
       activeTab === 'history' && React.createElement('div', null,
+        React.createElement('div', { style: { padding: '8px 16px', borderBottom: '1px solid #1e3a5f', display: 'flex', justifyContent: 'flex-end' } },
+          settledBets.length > 0 && React.createElement('button', {
+            onClick: function() {
+              var headers = ['Date','League','Game','Pick','Bet Type','Odds','Stake','Status','Payout','Net P&L','Sportsbook','Notes'];
+              var rows = settledBets.map(function(b) {
+                var pnl = b.status === 'won' ? Math.round(((b.payout || 0) - b.stake) * 100) / 100 : b.status === 'lost' ? -b.stake : 0;
+                return [
+                  b.createdAt ? new Date(b.createdAt).toLocaleDateString() : '',
+                  b.league, '"' + (b.game || '').replace(/\"/g, '""') + '"',
+                  '"' + (b.selection || '').replace(/\"/g, '""') + '"',
+                  b.betType, b.odds, b.stake.toFixed(2), b.status,
+                  b.payout ? b.payout.toFixed(2) : '0.00', pnl.toFixed(2),
+                  b.sportsbook || '',
+                  '"' + (b.notes || '').replace(/\"/g, '""') + '"'
+                ].join(',');
+              });
+              var csv = [headers.join(',')].concat(rows).join('\n');
+              var blob = new Blob([csv], { type: 'text/csv' });
+              var url = URL.createObjectURL(blob);
+              var a = document.createElement('a');
+              a.href = url; a.download = 'sportspulse-bets.csv'; a.click();
+              URL.revokeObjectURL(url);
+            },
+            style: { background: 'transparent', border: '1px solid #1e3a5f', color: '#94a3b8', borderRadius: '4px', padding: '4px 10px', fontSize: '11px', cursor: 'pointer' }
+          }, 'Export CSV')
+        ),
         settledBets.length === 0
           ? React.createElement('div', { style: { padding: '32px 16px', textAlign: 'center' as const, color: '#475569', fontSize: '12px' } }, 'No settled bets yet.')
           : settledBets.map(function(bet) {
