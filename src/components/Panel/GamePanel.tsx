@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 import React, { useState, useEffect } from 'react';
 import WinProbGauge from './WinProbGauge';
 
@@ -148,6 +148,17 @@ export default function GamePanel({ venueId, venueName, team, gameId, sport, onC
   const [winProb, setWinProb] = useState<{ homeProb: number; awayProb: number; source: string } | null>(null);
   const [activeTab, setActiveTab] = useState<'score' | 'overview' | 'odds' | 'ai'>('score');
 
+  const [playerStats, setPlayerStats] = useState<any>(null);
+
+  const [statsView, setStatsView] = useState<'home' | 'away'>('home');
+  // Player stats fetch - triggers on game load (pre-game shows season avgs, live/final shows boxscore)
+  useEffect(function() {
+    if (!gameId || !sport || !game) return;
+    fetch('/api/stats?espnId=' + gameId + '&sport=' + sport)
+      .then(function(r) { return r.json(); })
+      .then(function(d) { if (d.teams && d.teams.length > 0) setPlayerStats(d); })
+      .catch(function() {});
+  }, [gameId, sport, game?.status, game?.homeScore, game?.awayScore]);
   // 1. Sync game from liveGame prop - single source of truth from page.tsx
   useEffect(function() {
     if (!liveGame) return;
@@ -421,6 +432,202 @@ export default function GamePanel({ venueId, venueName, team, gameId, sport, onC
                   awayTeam={game.awayTeam}
                   source={kalshiData?.markets?.some(function(m: any) { return m.type === 'game'; }) ? 'Kalshi' : winProb?.source}
                 />
+                {playerStats && playerStats.teams && playerStats.teams.length > 0 && (function() {
+                  const isNBA = sport === 'basketball_nba' || sport === 'basketball_ncaab';
+                  const isMLB = sport === 'baseball_mlb';
+                  const isNHL = sport === 'icehockey_nhl';
+                  const isNFL = sport === 'americanfootball_nfl' || sport === 'americanfootball_ncaaf';
+                  const isSeasonAvg = playerStats.isSeasonAvg;
+                  const awayTeam = playerStats.teams[0];
+                  const homeTeam = playerStats.teams[1] || playerStats.teams[0];
+                  const t = statsView === 'home' ? homeTeam : awayTeam;
+                  if (!t) return null;
+                  const starters = (t.players || []).filter(function(p: any) { return p.starter; });
+                  const bench = (t.players || []).filter(function(p: any) { return !p.starter; });
+                  const allPlayers = isSeasonAvg ? (t.players || []) : [...starters, ...bench];
+                  // Sort season avg leaders by pts descending
+
+                  // Column definitions per sport per mode
+                  const hdNBA = isSeasonAvg ? ['GP','PTS','REB','AST','FG%','3P%','FT%'] : ['MIN','PTS','FG','3PT','REB','AST','+/-'];
+                  const hdMLB = isSeasonAvg ? ['GP','AVG','HR','RBI','OBP','SLG','R'] : ['H-AB','R','RBI','HR','K','AVG','OBP'];
+                  const hdNHL = isSeasonAvg ? ['GP','G','A','PTS','+/-','SOG','TOI'] : ['TOI','G','A','PTS','SOG','+/-','HIT'];
+                  const hdNFL_pass = ['C/A','YDS','TD','INT','QBR'];
+                  const hdNFL_rush = ['ATT','YDS','TD','YPC'];
+                  const hdNFL_rec = ['REC','YDS','TD','TGT'];
+                  const headers = isNBA ? hdNBA : isMLB ? hdMLB : isNHL ? hdNHL : [];
+                  const colW = '32px';
+                  const gridCol = isNFL ? '24px 1fr 44px 36px 28px 28px' : ('24px 1fr ' + headers.map(function() { return colW; }).join(' '));
+                  function renderPlayerRow(p: any, pi: number, showDivider: boolean) {
+                    const pm = p.plusMinus;
+                    const pmColor = pm && pm !== '-' ? (String(pm).startsWith('-') ? '#ef4444' : '#22c55e') : '#e2e8f0';
+                    return (
+                      <React.Fragment key={pi}>
+                        {showDivider && <div style={{ padding: '2px 16px', fontSize: '9px', color: '#1e3a5f', letterSpacing: '1px', textTransform: 'uppercase' as const, borderTop: '1px solid #1e3a5f', marginTop: '4px' }}>Bench</div>}
+                        {isNFL ? (
+                          <div>
+                            {p.type === 'pass' && (
+                              <div style={{ display: 'grid', padding: '3px 16px', fontSize: '11px', borderTop: '1px solid #0f1629', gridTemplateColumns: '24px 1fr 44px 36px 28px 28px' }}>
+                                 <span style={{ color: '#475569', fontSize: '9px', textAlign: 'center' as const }}>{p.position || ''}</span>
+                                 <span style={{ color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{p.name}</span>
+                                <span style={{ textAlign: 'right' as const, fontSize: '10px' }}>{p.compAtt}</span>
+                                <span style={{ textAlign: 'right' as const }}>{p.yds}</span>
+                                <span style={{ textAlign: 'right' as const, color: '#22c55e' }}>{p.td}</span>
+                                <span style={{ textAlign: 'right' as const, color: '#ef4444' }}>{p.int}</span>
+                              </div>
+                            )}
+                            {p.type === 'rush' && (
+                              <div style={{ display: 'grid', padding: '3px 16px', fontSize: '11px', borderTop: '1px solid #0f1629', gridTemplateColumns: '24px 1fr 44px 36px 28px 28px' }}>
+                                 <span style={{ color: '#475569', fontSize: '9px', textAlign: 'center' as const }}>{p.position || ''}</span>
+                                 <span style={{ color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{p.name}</span>
+                                <span style={{ textAlign: 'right' as const, fontSize: '10px' }}>{p.att}</span>
+                                <span style={{ textAlign: 'right' as const }}>{p.yds}</span>
+                                <span style={{ textAlign: 'right' as const, color: '#22c55e' }}>{p.td}</span>
+                                <span style={{ textAlign: 'right' as const, color: '#475569' }}>{p.ypc}</span>
+                              </div>
+                            )}
+                            {p.type === 'rec' && (
+                              <div style={{ display: 'grid', padding: '3px 16px', fontSize: '11px', borderTop: '1px solid #0f1629', gridTemplateColumns: '24px 1fr 44px 36px 28px 28px' }}>
+                                 <span style={{ color: '#475569', fontSize: '9px', textAlign: 'center' as const }}>{p.position || ''}</span>
+                                 <span style={{ color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{p.name}</span>
+                                <span style={{ textAlign: 'right' as const }}>{p.rec}</span>
+                                <span style={{ textAlign: 'right' as const }}>{p.yds}</span>
+                                <span style={{ textAlign: 'right' as const, color: '#22c55e' }}>{p.td}</span>
+                                <span style={{ textAlign: 'right' as const, color: '#475569' }}>{p.tgt}</span>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div style={{ display: 'grid', padding: '3px 16px', fontSize: '11px', borderTop: '1px solid #0f1629', gridTemplateColumns: gridCol }}>
+                            <span style={{ color: '#475569', fontSize: '9px', textAlign: 'center' as const }}>{p.position || ''}</span>
+                            <span style={{ color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{p.name}</span>
+                            {isNBA && !isSeasonAvg && <><span style={{ textAlign: 'right' as const, color: '#475569', fontSize: '10px' }}>{p.min}</span><span style={{ textAlign: 'right' as const, color: '#22c55e', fontWeight: 'bold' }}>{p.pts}</span><span style={{ textAlign: 'right' as const, fontSize: '10px' }}>{p.fg}</span><span style={{ textAlign: 'right' as const, fontSize: '10px' }}>{p.threeP}</span><span style={{ textAlign: 'right' as const }}>{p.reb}</span><span style={{ textAlign: 'right' as const }}>{p.ast}</span><span style={{ textAlign: 'right' as const, color: String(p.plusMinus).startsWith('-') ? '#ef4444' : '#22c55e' }}>{p.plusMinus}</span></>}
+                            {isNBA && isSeasonAvg && <><span style={{ textAlign: 'right' as const, color: '#475569', fontSize: '10px' }}>{p.gp}</span><span style={{ textAlign: 'right' as const, color: '#22c55e', fontWeight: 'bold' }}>{p.pts}</span><span style={{ textAlign: 'right' as const }}>{p.reb}</span><span style={{ textAlign: 'right' as const }}>{p.ast}</span><span style={{ textAlign: 'right' as const, color: '#60a5fa' }}>{p.fgPct}</span><span style={{ textAlign: 'right' as const, color: '#60a5fa' }}>{p.threePct}</span><span style={{ textAlign: 'right' as const, color: '#60a5fa' }}>{p.ftPct}</span></>}
+                            {isNHL && !isSeasonAvg && <><span style={{ textAlign: 'right' as const, color: '#475569', fontSize: '10px' }}>{p.toi}</span><span style={{ textAlign: 'right' as const, color: '#22c55e' }}>{p.g}</span><span style={{ textAlign: 'right' as const }}>{p.a}</span><span style={{ textAlign: 'right' as const, fontWeight: 'bold' }}>{p.pts}</span><span style={{ textAlign: 'right' as const }}>{p.sog}</span><span style={{ textAlign: 'right' as const, color: String(p.plusMinus).startsWith('-') ? '#ef4444' : '#22c55e' }}>{p.plusMinus}</span><span style={{ textAlign: 'right' as const, color: '#475569' }}>{p.hits}</span></>}
+                            {isNHL && isSeasonAvg && <><span style={{ textAlign: 'right' as const, color: '#475569', fontSize: '10px' }}>{p.gp}</span><span style={{ textAlign: 'right' as const, color: '#22c55e' }}>{p.g}</span><span style={{ textAlign: 'right' as const }}>{p.a}</span><span style={{ textAlign: 'right' as const, fontWeight: 'bold' }}>{p.pts}</span><span style={{ textAlign: 'right' as const, color: String(p.plusMinus).startsWith('-') ? '#ef4444' : p.plusMinus === '0' ? '#475569' : '#22c55e' }}>{p.plusMinus}</span><span style={{ textAlign: 'right' as const }}>{p.sog}</span><span style={{ textAlign: 'right' as const, color: '#475569', fontSize: '10px' }}>{p.toi}</span></>}
+                            {isMLB && !isSeasonAvg && p.type === 'batter' && <><span style={{ textAlign: 'right' as const, fontSize: '10px' }}>{p.hab}</span><span style={{ textAlign: 'right' as const }}>{p.r}</span><span style={{ textAlign: 'right' as const }}>{p.rbi}</span><span style={{ textAlign: 'right' as const }}>{p.hr}</span><span style={{ textAlign: 'right' as const }}>{p.k}</span><span style={{ textAlign: 'right' as const, color: '#60a5fa' }}>{p.avg}</span><span style={{ textAlign: 'right' as const, color: '#60a5fa' }}>{p.obp}</span></>}
+                            {isMLB && !isSeasonAvg && p.type === 'pitcher' && <><span style={{ textAlign: 'right' as const }}>{p.ip}</span><span style={{ textAlign: 'right' as const }}>{p.h}</span><span style={{ textAlign: 'right' as const }}>{p.er}</span><span style={{ textAlign: 'right' as const }}>{p.bb}</span><span style={{ textAlign: 'right' as const, color: '#22c55e' }}>{p.k}</span><span style={{ textAlign: 'right' as const, color: '#60a5fa' }}>{p.era}</span><span style={{ textAlign: 'right' as const }}>{'-'}</span></>}
+                            {isMLB && isSeasonAvg && <><span style={{ textAlign: 'right' as const, color: '#475569', fontSize: '10px' }}>{p.gp}</span><span style={{ textAlign: 'right' as const, color: '#60a5fa', fontWeight: 'bold' }}>{p.avg}</span><span style={{ textAlign: 'right' as const }}>{p.hr}</span><span style={{ textAlign: 'right' as const }}>{p.rbi}</span><span style={{ textAlign: 'right' as const, color: '#60a5fa' }}>{p.obp}</span><span style={{ textAlign: 'right' as const, color: '#60a5fa' }}>{p.slg}</span><span style={{ textAlign: 'right' as const }}>{p.r}</span></>}
+                          </div>
+                        )}
+                      </React.Fragment>
+                    );
+                  }
+                  return (
+                    <div style={{ marginTop: '12px', borderTop: '1px solid #1e3a5f', paddingTop: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px 8px' }}>
+                        <span style={{ fontSize: '10px', color: '#475569', fontStyle: 'italic' }}>{isSeasonAvg ? 'Season Averages' : 'Game Stats'}</span>
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                          {(['away', 'home'] as const).map(function(side) {
+                            const label = side === 'home' ? (homeTeam?.teamName || 'Home') : (awayTeam?.teamName || 'Away');
+                            return (
+                              <button key={side} onClick={function() { setStatsView(side); }} style={{ padding: '3px 8px', borderRadius: '4px', border: '1px solid #1e3a5f', cursor: 'pointer', fontSize: '10px', fontWeight: statsView === side ? 'bold' : 'normal', background: statsView === side ? '#22c55e' : '#0a0e1a', color: statsView === side ? '#000' : '#475569' }}>{label}</button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                      {isSeasonAvg && allPlayers.length > 0 && (
+                        <div style={{ margin: '0 16px 8px', padding: '8px', background: '#0f1629', borderRadius: '6px', border: '1px solid #1e3a5f' }}>
+                          <div style={{ fontSize: '9px', color: '#475569', letterSpacing: '1px', marginBottom: '8px', textTransform: 'uppercase' as const }}>Season Leaders</div>
+                          {isNBA && (function() {
+                            const ppgLeader = [...allPlayers].sort(function(a,b){return parseFloat(b.pts||0)-parseFloat(a.pts||0);})[0];
+                            const rpgLeader = [...allPlayers].sort(function(a,b){return parseFloat(b.reb||0)-parseFloat(a.reb||0);})[0];
+                            const apgLeader = [...allPlayers].sort(function(a,b){return parseFloat(b.ast||0)-parseFloat(a.ast||0);})[0];
+                            return (
+                              <div style={{ display: 'flex', gap: '6px' }}>
+                                {[{p: ppgLeader, stat: ppgLeader?.pts, label: 'PPG'}, {p: rpgLeader, stat: rpgLeader?.reb, label: 'RPG'}, {p: apgLeader, stat: apgLeader?.ast, label: 'APG'}].map(function(item, li) {
+                                  return (
+                                    <div key={li} style={{ flex: 1, textAlign: 'center' as const, padding: '4px', background: '#0a0e1a', borderRadius: '4px' }}>
+                                      <div style={{ fontSize: '9px', color: '#475569', marginBottom: '2px' }}>{item.label}</div>
+                                      <div style={{ fontSize: '13px', color: '#22c55e', fontWeight: 'bold' }}>{item.stat}</div>
+                                      <div style={{ fontSize: '9px', color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{item.p?.name}</div>
+                                      <div style={{ fontSize: '9px', color: '#475569' }}>{item.p?.position}</div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            );
+                          })()}
+                          {isNHL && (function() {
+                            const ptsL = [...allPlayers].sort(function(a,b){return parseFloat(b.pts||0)-parseFloat(a.pts||0);})[0];
+                            const gL = [...allPlayers].sort(function(a,b){return parseFloat(b.g||0)-parseFloat(a.g||0);})[0];
+                            const aL = [...allPlayers].sort(function(a,b){return parseFloat(b.a||0)-parseFloat(a.a||0);})[0];
+                            return (
+                              <div style={{ display: 'flex', gap: '6px' }}>
+                                {[{p: ptsL, stat: ptsL?.pts, label: 'PTS'}, {p: gL, stat: gL?.g, label: 'G'}, {p: aL, stat: aL?.a, label: 'A'}].map(function(item, li) {
+                                  return (
+                                    <div key={li} style={{ flex: 1, textAlign: 'center' as const, padding: '4px', background: '#0a0e1a', borderRadius: '4px' }}>
+                                      <div style={{ fontSize: '9px', color: '#475569', marginBottom: '2px' }}>{item.label}</div>
+                                      <div style={{ fontSize: '13px', color: '#22c55e', fontWeight: 'bold' }}>{item.stat}</div>
+                                      <div style={{ fontSize: '9px', color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{item.p?.name}</div>
+                                      <div style={{ fontSize: '9px', color: '#475569' }}>{item.p?.position}</div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            );
+                          })()}
+                          {isMLB && (function() {
+                            const avgL = [...allPlayers].sort(function(a,b){return parseFloat(b.avg||0)-parseFloat(a.avg||0);})[0];
+                            const hrL = [...allPlayers].sort(function(a,b){return parseFloat(b.hr||0)-parseFloat(a.hr||0);})[0];
+                            const rbiL = [...allPlayers].sort(function(a,b){return parseFloat(b.rbi||0)-parseFloat(a.rbi||0);})[0];
+                            return (
+                              <div style={{ display: 'flex', gap: '6px' }}>
+                                {[{p: avgL, stat: avgL?.avg, label: 'AVG'}, {p: hrL, stat: hrL?.hr, label: 'HR'}, {p: rbiL, stat: rbiL?.rbi, label: 'RBI'}].map(function(item, li) {
+                                  return (
+                                    <div key={li} style={{ flex: 1, textAlign: 'center' as const, padding: '4px', background: '#0a0e1a', borderRadius: '4px' }}>
+                                      <div style={{ fontSize: '9px', color: '#475569', marginBottom: '2px' }}>{item.label}</div>
+                                      <div style={{ fontSize: '13px', color: '#60a5fa', fontWeight: 'bold' }}>{item.stat}</div>
+                                      <div style={{ fontSize: '9px', color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{item.p?.name}</div>
+                                      <div style={{ fontSize: '9px', color: '#475569' }}>{item.p?.position}</div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      )}
+                      {!isNFL && (
+                        <div style={{ display: 'grid', gridTemplateColumns: gridCol, gap: '0', padding: '0 16px 4px', fontSize: '9px', color: '#475569', borderBottom: '1px solid #1e3a5f' }}>
+                          <span style={{ color: '#475569' }}>POS</span><span>PLAYER</span>
+                          {(isNBA || isMLB || isNHL) && headers.map(function(h: string, hi: number) { return <span key={hi} style={{ textAlign: 'right' as const }}>{h}</span>; })}
+                        </div>
+                      )}
+
+
+
+
+                      {isNFL && (
+                        <div>
+                          {['pass','rush','rec'].map(function(groupType: string) {
+                            const groupPlayers = allPlayers.filter(function(p: any) { return p.type === groupType; });
+                            if (groupPlayers.length === 0) return null;
+                            const groupHd = groupType === 'pass' ? hdNFL_pass : groupType === 'rush' ? hdNFL_rush : hdNFL_rec;
+                            const groupLabel = groupType === 'pass' ? 'Passing' : groupType === 'rush' ? 'Rushing' : 'Receiving';
+                            return (
+                              <div key={groupType}>
+                                <div style={{ display: 'grid', gridTemplateColumns: '24px 1fr 44px 36px 28px 28px', gap: '0', padding: '2px 16px 2px', fontSize: '9px', color: '#475569', borderBottom: '1px solid #1e3a5f', marginTop: '4px' }}>
+                                   <span></span><span style={{ color: '#60a5fa', fontWeight: 'bold' }}>{groupLabel}</span>
+                                   {groupHd.map(function(h: string, hi: number) { return <span key={hi} style={{ textAlign: 'right' as const }}>{h}</span>; })}
+                                </div>
+                                {groupPlayers.map(function(p: any, pi: number) { return renderPlayerRow(p, pi, false); })}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                      {!isNFL && (
+                        <div>
+                          {!isSeasonAvg && starters.length > 0 && <div style={{ padding: '2px 16px', fontSize: '9px', color: '#475569', letterSpacing: '1px', textTransform: 'uppercase' as const }}>Starters</div>}
+                          {allPlayers.map(function(p: any, pi: number) {
+                            const showDivider = !isSeasonAvg && starters.length > 0 && pi === starters.length;
+                            return renderPlayerRow(p, pi, showDivider);
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             )}
             {activeTab === 'overview' && game && (
