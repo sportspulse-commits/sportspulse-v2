@@ -215,7 +215,7 @@ export default function BetTracker({ onClose, defaultSportsbook = 'DraftKings', 
             onClick: function() {
               var headers = ['Date','League','Game','Pick','Bet Type','Odds','Stake','Status','Payout','Net P&L','Sportsbook','Notes'];
               var rows = settledBets.map(function(b) {
-                var pnl = b.status === 'won' ? Math.round(((b.payout || 0) - b.stake) * 100) / 100 : b.status === 'lost' ? -b.stake : 0;
+                var pnl = b.status === 'won' ? Math.round(((b.payout || 0) - b.stake) * 100) / 100 : b.status === 'lost' ? -b.stake : b.status === 'push' ? 0 : 0;
                 return [
                   b.createdAt ? new Date(b.createdAt).toLocaleDateString() : '',
                   b.league, '"' + (b.game || '').replace(/\"/g, '""') + '"',
@@ -240,7 +240,7 @@ export default function BetTracker({ onClose, defaultSportsbook = 'DraftKings', 
           ? React.createElement('div', { style: { padding: '32px 16px', textAlign: 'center' as const, color: '#475569', fontSize: '12px' } }, 'No settled bets yet.')
           : settledBets.map(function(bet) {
               var statusColor = bet.status === 'won' ? '#22c55e' : bet.status === 'lost' ? '#ef4444' : '#475569';
-              var pnl = bet.status === 'won' ? (bet.payout || 0) : bet.status === 'lost' ? -bet.stake : 0;
+              var pnl = bet.status === 'won' ? Math.round(((bet.payout || 0) - bet.stake) * 100) / 100 : bet.status === 'lost' ? -bet.stake : 0;
               return React.createElement('div', { key: bet.id, style: { padding: '12px 16px', borderBottom: '1px solid #1e3a5f' } },
                 React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: '4px' } },
                   React.createElement('span', { style: { color: '#60a5fa', fontSize: '10px', fontWeight: 'bold' } }, bet.league),
@@ -323,7 +323,7 @@ export default function BetTracker({ onClose, defaultSportsbook = 'DraftKings', 
         })(),
         selectedArchive.bets.map(function(bet) {
           var statusColor = bet.status === 'won' ? '#22c55e' : bet.status === 'lost' ? '#ef4444' : '#f59e0b';
-          var pnl = bet.status === 'won' ? (bet.payout || 0) : bet.status === 'lost' ? -bet.stake : 0;
+          var pnl = bet.status === 'won' ? Math.round(((bet.payout || 0) - bet.stake) * 100) / 100 : bet.status === 'lost' ? -bet.stake : 0;
           return React.createElement('div', { key: bet.id, style: { padding: '12px 16px', borderBottom: '1px solid #1e3a5f' } },
             React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: '4px' } },
               React.createElement('span', { style: { color: '#60a5fa', fontSize: '10px', fontWeight: 'bold' } }, bet.league),
