@@ -9,6 +9,7 @@ interface OddsTickerProps {
   onGameSelect: (gameId: string, venueId: string, venueName: string, team: string, sport: string) => void;
   onCollapsedChange?: (collapsed: boolean) => void;
   oddsMap?: Record<string, any>;
+  selectedSportsbook?: string;
 }
 
 interface GameOdds {
@@ -63,8 +64,10 @@ function didHit(game: any, type: string, side: string, line?: number): boolean {
   return false;
 }
 
-export default function OddsTicker({ games, selectedDate, onGameSelect, onCollapsedChange, oddsMap: passedOddsMap }: OddsTickerProps) {
+export default function OddsTicker({ games, selectedDate, onGameSelect, onCollapsedChange, oddsMap: passedOddsMap, selectedSportsbook }: OddsTickerProps) {
   const [collapsed, setCollapsed] = useState(false);
+  const BOOK_KEY_MAP: Record<string, string> = { 'DraftKings': 'draftkings', 'FanDuel': 'fanduel', 'BetMGM': 'betmgm', 'Caesars': 'williamhill_us', 'Pinnacle': 'pinnacle', 'PointsBet': 'pointsbetus', 'Other': '' };
+  const selectedBookKey = selectedSportsbook ? (BOOK_KEY_MAP[selectedSportsbook] ?? selectedSportsbook.toLowerCase()) : null;
   const [oddsMap, setOddsMap] = useState<Record<string, GameOdds>>({});
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
 
@@ -76,7 +79,7 @@ export default function OddsTicker({ games, selectedDate, onGameSelect, onCollap
       // Convert passedOddsMap format to GameOdds format
       const converted: Record<string, GameOdds> = {};
       Object.entries(passedOddsMap).forEach(function([key, odd]: [string, any]) {
-        const book = odd.bookmakers && odd.bookmakers[0];
+        const book = odd.bookmakers && (selectedBookKey ? odd.bookmakers.find(function(b: any) { return b.key === selectedBookKey; }) : odd.bookmakers[0]);
         if (!book) return;
         const h2h = book.markets && book.markets.find(function(m: any) { return m.key === 'h2h'; });
         const spreads = book.markets && book.markets.find(function(m: any) { return m.key === 'spreads'; });
@@ -114,7 +117,7 @@ export default function OddsTicker({ games, selectedDate, onGameSelect, onCollap
         const d = await r.json();
         const event = d.odds && d.odds[0];
         if (!event) return;
-        const book = event.bookmakers && event.bookmakers[0];
+        const book = event.bookmakers && (selectedBookKey ? event.bookmakers.find(function(b: any) { return b.key === selectedBookKey; }) : event.bookmakers[0]);
         if (!book) return;
         const h2h = book.markets && book.markets.find(function(m: any) { return m.key === 'h2h'; });
         const spreads = book.markets && book.markets.find(function(m: any) { return m.key === 'spreads'; });

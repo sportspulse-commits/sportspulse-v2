@@ -173,8 +173,8 @@ export default function Home() {
       onGameSelect: handleTickerGameSelect,
       onCollapsedChange: setTickerCollapsed,
       oddsMap: allOdds,
+      selectedSportsbook: defaultSportsbook,
     }),
-
     React.createElement('div', {
       style: { position: 'absolute', top: '16px', left: '50%', transform: 'translateX(-50%)', zIndex: 999, display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'nowrap' as const, justifyContent: 'center', maxWidth: '1200px', background: 'rgba(10,14,26,0.85)', padding: '6px 10px', borderRadius: '8px', backdropFilter: 'blur(8px)', border: '1px solid #1e3a5f' }
     },
