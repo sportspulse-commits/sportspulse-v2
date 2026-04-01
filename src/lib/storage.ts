@@ -45,7 +45,7 @@ export interface PortfolioStats {
 }
 
 const KEY = 'sportspulse_bets_v1';
-const ARCHIVE_KEY = 'sportspulse_archives_v1';
+const ARCHIVE_KEY = 'sportspulse_archives_v2';
 
 export function getBets(): Bet[] {
   if (typeof window === 'undefined') return [];
@@ -76,27 +76,6 @@ export function deleteBet(id: string): void {
   localStorage.setItem(KEY, JSON.stringify(getBets().filter(function(b) { return b.id !== id; })));
 }
 
-export function getArchives(): Archive[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = localStorage.getItem(ARCHIVE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch { return []; }
-}
-
-export function archiveAndReset(title: string): void {
-  const bets = getBets();
-  if (bets.length === 0) return;
-  const archive: Archive = {
-    id: Date.now().toString(36),
-    title,
-    createdAt: new Date().toISOString(),
-    bets,
-  };
-  const archives = getArchives();
-  localStorage.setItem(ARCHIVE_KEY, JSON.stringify([archive, ...archives]));
-  localStorage.setItem(KEY, JSON.stringify([]));
-}
 
 export function calcPayout(stake: number, odds: number): number {
   if (odds > 0) return stake + stake * (odds / 100);

@@ -212,10 +212,34 @@ export default function WatchPanel({ games, onClose, allBroadcasts = {} }: Watch
     );
   }
 
-  const watchlistGames = watchlist.map(function(item: any) {
+
+  // Auto-remove finished games and only show today's games
+  const todayStr = new Date().toISOString().slice(0, 10);
+  React.useEffect(function() {
+    if (watchlist.length === 0) return;
+    watchlist.forEach(async function(item: any) {
+      const liveGame = games.find(function(g) { return g.id === item.game_id; });
+      const gameDate = (item.game_date || '').slice(0, 10);
+      const isOldGame = gameDate < todayStr;
+      const isFinished = liveGame && liveGame.status === 'final';
+      if (isOldGame || isFinished) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+        await supabase.from('watchlist').delete().eq('user_id', session.user.id).eq('game_id', item.game_id);
+        setWatchedIds(function(prev) { const n = new Set(prev); n.delete(item.game_id); return n; });
+        setWatchlist(function(prev) { return prev.filter(function(i: any) { return i.game_id !== item.game_id; }); });
+      }
+    });
+  }, [watchlist, games, todayStr]);
+
+  const watchlistGames = watchlist.filter(function(item: any) {
+    const gameDate = (item.game_date || '').slice(0, 10);
+    return gameDate >= todayStr;
+  }).map(function(item: any) {
     const liveGame = games.find(function(g) { return g.id === item.game_id; });
+    if (liveGame && liveGame.status === 'final') return null;
     return liveGame || { id: item.game_id, homeTeam: item.home_team, awayTeam: item.away_team, league: item.sport, gameTime: item.game_date, homeScore: 0, awayScore: 0, status: 'scheduled' };
-  });
+  }).filter(Boolean);
 
   return React.createElement('div', {
     style: { position: 'fixed', right: 0, top: 0, height: '100%', width: '400px', background: '#0f1629', borderLeft: '1px solid #1e3a5f', zIndex: 1001, display: 'flex', flexDirection: 'column', fontFamily: 'monospace', color: '#e2e8f0' }

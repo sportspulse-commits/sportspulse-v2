@@ -39,21 +39,21 @@ const NFL_ABBREV: Record<string, string> = {
 };
 
 const MLB_ABBREV: Record<string, string> = {
-  'arizona': 'ARI', 'diamondbacks': 'ARI', 'atlanta': 'ATL', 'braves': 'ATL',
-  'baltimore': 'BAL', 'orioles': 'BAL', 'boston': 'BOS', 'red': 'BOS',
-  'chicago': 'CHC', 'cubs': 'CHC', 'white': 'CWS', 'sox': 'CWS',
-  'cincinnati': 'CIN', 'reds': 'CIN', 'cleveland': 'CLE', 'guardians': 'CLE',
-  'colorado': 'COL', 'rockies': 'COL', 'detroit': 'DET', 'tigers': 'DET',
-  'houston': 'HOU', 'astros': 'HOU', 'kansas': 'KC', 'royals': 'KC',
-  'angeles': 'LAD', 'dodgers': 'LAD', 'angels': 'LAA',
-  'miami': 'MIA', 'marlins': 'MIA', 'milwaukee': 'MIL', 'brewers': 'MIL',
-  'minnesota': 'MIN', 'twins': 'MIN', 'york': 'NYY', 'yankees': 'NYY',
-  'mets': 'NYM', 'oakland': 'ATH', 'athletics': 'ATH',
-  'philadelphia': 'PHI', 'phillies': 'PHI', 'pittsburgh': 'PIT', 'pirates': 'PIT',
-  'diego': 'SD', 'padres': 'SD', 'san': 'SF', 'giants': 'SF',
-  'seattle': 'SEA', 'mariners': 'SEA', 'louis': 'STL', 'cardinals': 'STL',
-  'tampa': 'TB', 'rays': 'TB', 'texas': 'TEX', 'rangers': 'TEX',
-  'toronto': 'TOR', 'blue': 'TOR', 'washington': 'WSH', 'nationals': 'WSH',
+  'diamondbacks': 'ARI', 'braves': 'ATL', 'orioles': 'BAL',
+  'cubs': 'CHC', 'whitesox': 'CWS', 'reds': 'CIN', 'guardians': 'CLE',
+  'rockies': 'COL', 'tigers': 'DET', 'astros': 'HOU', 'royals': 'KC',
+  'dodgers': 'LAD', 'angels': 'LAA', 'marlins': 'MIA', 'brewers': 'MIL',
+  'twins': 'MIN', 'yankees': 'NYY', 'mets': 'NYM', 'athletics': 'ATH',
+  'phillies': 'PHI', 'pirates': 'PIT', 'padres': 'SD', 'giants': 'SF',
+  'mariners': 'SEA', 'cardinals': 'STL', 'rays': 'TB', 'rangers': 'TEX',
+  'blue': 'TOR', 'nationals': 'WSH', 'redsox': 'BOS',
+  'arizona': 'ARI', 'atlanta': 'ATL', 'baltimore': 'BAL', 'boston': 'BOS',
+  'chicago': 'CHC', 'cincinnati': 'CIN', 'cleveland': 'CLE', 'colorado': 'COL',
+  'detroit': 'DET', 'houston': 'HOU', 'kansas': 'KC', 'miami': 'MIA',
+  'milwaukee': 'MIL', 'minnesota': 'MIN', 'oakland': 'ATH',
+  'philadelphia': 'PHI', 'pittsburgh': 'PIT', 'diego': 'SD',
+  'seattle': 'SEA', 'louis': 'STL', 'tampa': 'TB', 'texas': 'TEX',
+  'toronto': 'TOR', 'washington': 'WSH', 'york': 'NYY',
 };
 
 const NHL_ABBREV: Record<string, string> = {
@@ -134,22 +134,32 @@ async function searchGameMarkets(series: string, homeAbbrev: string, awayAbbrev:
       const et = (m.event_ticker || '').toLowerCase();
       return et.includes(homeAbbrevLower) && et.includes(awayAbbrevLower);
     });
-    // Group by event_ticker, pick the event closest to gameTime
+    if (matched.length === 0) return [];
+    // Convert UTC gameTime to US Eastern to match Kalshi's local date
+    const gameDate = new Date(gameTime);
+    // US Eastern is UTC-5 (EST) or UTC-4 (EDT). Use UTC-4 as approximation for MLB season
+    const easternOffsetMs = 4 * 60 * 60 * 1000;
+    const easternDate = new Date(gameDate.getTime() - easternOffsetMs);
+    const gameDateStr = easternDate.getUTCFullYear() + '-' +
+      String(easternDate.getUTCMonth() + 1).padStart(2,'0') + '-' +
+      String(easternDate.getUTCDate()).padStart(2,'0');
+    const MONTHS: Record<string,string> = { jan:'01',feb:'02',mar:'03',apr:'04',may:'05',jun:'06',jul:'07',aug:'08',sep:'09',oct:'10',nov:'11',dec:'12' };
+    // Group by event_ticker
     const byEvent: Record<string, any[]> = {};
     for (const m of matched) { const et = m.event_ticker || 'unknown'; if (!byEvent[et]) byEvent[et] = []; byEvent[et].push(m); }
-    if (Object.keys(byEvent).length === 0) return [];
-    const targetTime = new Date(gameTime).getTime();
-    let bestEvent = Object.keys(byEvent)[0];
+    // Find event whose date matches the Eastern game date exactly
+    let bestEvent: string | null = null;
     let bestDiff = Infinity;
-    const MONTHS: Record<string,string> = { jan:'01',feb:'02',mar:'03',apr:'04',may:'05',jun:'06',jul:'07',aug:'08',sep:'09',oct:'10',nov:'11',dec:'12' };
     for (const et of Object.keys(byEvent)) {
       const m = et.toLowerCase().match(/(\d{2})(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)(\d{2})/);
       if (!m) continue;
       const year = '20' + m[1]; const month = MONTHS[m[2]]; const day = m[3].padStart(2,'0');
-      const d = new Date(year + '-' + month + '-' + day);
-      const diff = Math.abs(d.getTime() - targetTime);
+      const eventDateStr = year + '-' + month + '-' + day;
+      const diff = Math.abs(new Date(eventDateStr).getTime() - new Date(gameDateStr).getTime());
       if (diff < bestDiff) { bestDiff = diff; bestEvent = et; }
     }
+    // Only match if same calendar day in Eastern time (diff = 0) or within 12h for edge cases
+    if (!bestEvent || bestDiff > 12 * 60 * 60 * 1000) return [];
     return byEvent[bestEvent] || [];
   } catch { return []; }
 }

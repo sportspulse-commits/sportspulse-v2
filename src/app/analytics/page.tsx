@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase/client';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, ReferenceLine } from 'recharts';
 
@@ -71,6 +71,59 @@ function computeRecentBets(bets: any[], limit = 50) {
   });
 }
 
+
+function BetRow({ bet, selectedArchive, onSaved, onDeleted }: { bet: any; selectedArchive: any; onSaved: () => void; onDeleted: () => void }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [odds, setOdds] = useState(String(bet.odds));
+  const [stake, setStake] = useState(String(bet.stake));
+  const [status, setStatus] = useState(bet.status);
+
+  const rc = bet.status === 'won' ? '#0d2a1a' : bet.status === 'lost' ? '#2a0d0d' : 'transparent';
+  const pc = bet.pnl > 0 ? '#22c55e' : bet.pnl < 0 ? '#ef4444' : '#475569';
+  const inputStyle = { background: '#0a0e1a', border: '1px solid #1e3a5f', color: '#e2e8f0', borderRadius: '3px', padding: '2px 4px', fontSize: '11px', width: '100%', fontFamily: 'monospace' };
+
+  async function handleSave() {
+    if (!bet.id) return;
+    setIsSaving(true);
+    try {
+      const newStake = Number(stake);
+      const newOdds = Number(odds);
+      const newStatus = status;
+      let payout = 0;
+      if (newStatus === 'won') {
+        const profit = newOdds > 0 ? newStake * (newOdds / 100) : newStake * (100 / Math.abs(newOdds));
+        payout = newStake + profit;
+      } else if (newStatus === 'push') {
+        payout = newStake;
+      }
+      const { error } = await supabase.from('bets').update({ odds: newOdds, stake: newStake, status: newStatus, payout }).eq('id', bet.id);
+      if (!error) { setIsEditing(false); onSaved(); }
+      else console.error('Save error:', error);
+    } catch(e) { console.error(e); }
+    setIsSaving(false);
+  }
+
+  async function handleDelete() {
+    if (!bet.id || !confirm('Delete this bet?')) return;
+    await supabase.from('bets').delete().eq('id', bet.id);
+    onDeleted();
+  }
+
+  return (
+    <tr style={{ background: isEditing ? '#0f1629' : rc, borderBottom: '1px solid #1e3a5f' }}>
+      <td style={{ padding: '8px', color: '#475569' }}>{bet.date}</td>
+      <td style={{ padding: '8px', color: '#94a3b8', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{bet.game}</td>
+      <td style={{ padding: '8px', color: '#e2e8f0', fontWeight: 'bold' }}>{bet.pick}</td>
+      <td style={{ padding: '4px 8px', minWidth: '60px' }}>{isEditing ? <input style={inputStyle} value={odds} onChange={function(e) { setOdds(e.target.value); }} /> : <span style={{ color: '#94a3b8' }}>{bet.odds > 0 ? '+' + bet.odds : bet.odds}</span>}</td>
+      <td style={{ padding: '4px 8px', minWidth: '70px' }}>{isEditing ? <input style={inputStyle} value={stake} onChange={function(e) { setStake(e.target.value); }} /> : <span style={{ color: '#94a3b8' }}>{'$' + Number(bet.stake).toFixed(2)}</span>}</td>
+      <td style={{ padding: '4px 8px', minWidth: '80px' }}>{isEditing ? <select style={{...inputStyle, width: 'auto'}} value={status} onChange={function(e) { setStatus(e.target.value); }}><option value="won">WON</option><option value="lost">LOST</option><option value="push">PUSH</option></select> : <span style={{ color: bet.status === 'won' ? '#22c55e' : bet.status === 'lost' ? '#ef4444' : '#475569', fontWeight: 'bold', textTransform: 'uppercase' as const }}>{bet.status}</span>}</td>
+      <td style={{ padding: '8px', color: pc, fontWeight: 'bold' }}>{bet.pnl >= 0 ? '+$' : '-$'}{Math.abs(bet.pnl).toFixed(2)}</td>
+      <td style={{ padding: '4px 8px', whiteSpace: 'nowrap' as const }}>{!selectedArchive && (isEditing ? <span style={{ display: 'flex', gap: '4px' }}><button onClick={handleSave} disabled={isSaving} style={{ padding: '3px 8px', background: '#22c55e', border: 'none', color: '#000', borderRadius: '3px', cursor: 'pointer', fontSize: '10px', fontFamily: 'monospace', fontWeight: 'bold' }}>{isSaving ? '...' : 'SAVE'}</button><button onClick={function() { setIsEditing(false); setOdds(String(bet.odds)); setStake(String(bet.stake)); setStatus(bet.status); }} style={{ padding: '3px 6px', background: 'none', border: '1px solid #1e3a5f', color: '#475569', borderRadius: '3px', cursor: 'pointer', fontSize: '10px' }}>✕</button></span> : <span style={{ display: 'flex', gap: '4px' }}><button onClick={function() { setIsEditing(true); }} style={{ padding: '3px 6px', background: 'none', border: '1px solid #1e3a5f', color: '#475569', borderRadius: '3px', cursor: 'pointer', fontSize: '10px' }}>✎</button><button onClick={handleDelete} style={{ padding: '3px 6px', background: 'none', border: '1px solid #ef4444', color: '#ef4444', borderRadius: '3px', cursor: 'pointer', fontSize: '10px' }}>✕</button></span>)}</td>
+    </tr>
+  );
+}
+
 export default function AnalyticsPage() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -80,6 +133,7 @@ export default function AnalyticsPage() {
   const [selectedArchive, setSelectedArchive] = useState<any>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<any>({});
+  const editFormRef = useRef<any>({});
   const [savingId, setSavingId] = useState<string | null>(null);
 
   useEffect(function() {
@@ -190,7 +244,7 @@ export default function AnalyticsPage() {
               {recentBets.length > 0 && (
                 <div style={{ background: '#0f1629', border: '1px solid #1e3a5f', borderRadius: '8px', padding: '20px' }}>
                   <div style={{ color: '#94a3b8', fontSize: '10px', letterSpacing: '2px', marginBottom: '16px' }}>{selectedArchive ? 'BETS SETTLED DURING ' + selectedArchive.title.toUpperCase() : viewMode === 'alltime' ? 'ALL TIME SETTLED BETS' : 'RECENT SETTLED BETS'}</div>
-                  <div style={{ overflowX: 'auto' as const }}><table style={{ width: '100%', borderCollapse: 'collapse' as const, fontSize: '11px' }}><thead><tr>{['Date','Game','Pick','Odds','Stake','Result','P&L',''].map(function(h) { return <th key={h} style={{ color: '#475569', textAlign: 'left' as const, padding: '6px 8px', borderBottom: '1px solid #1e3a5f', letterSpacing: '1px' }}>{h}</th>; })}</tr></thead><tbody>{recentBets.map(function(bet: any) { const isEditing = editingId === bet.id; const isSaving = savingId === bet.id; const rc = bet.status === 'won' ? '#0d2a1a' : bet.status === 'lost' ? '#2a0d0d' : 'transparent'; const pc = bet.pnl > 0 ? '#22c55e' : bet.pnl < 0 ? '#ef4444' : '#475569'; const inputStyle = { background: '#0a0e1a', border: '1px solid #1e3a5f', color: '#e2e8f0', borderRadius: '3px', padding: '2px 4px', fontSize: '11px', width: '100%', fontFamily: 'monospace' }; async function handleSave() { if (!bet.id) return; setSavingId(bet.id); try { const updates: any = {}; const newStake = editForm.stake !== undefined ? Number(editForm.stake) : Number(bet.stake); const newOdds = editForm.odds !== undefined ? Number(editForm.odds) : Number(bet.odds); const newStatus = editForm.status !== undefined ? editForm.status : bet.status; if (editForm.odds !== undefined) updates.odds = newOdds; if (editForm.stake !== undefined) updates.stake = newStake; if (editForm.status !== undefined) updates.status = newStatus; if (editForm.stake !== undefined || editForm.odds !== undefined || editForm.status !== undefined) { if (newStatus === 'won') { const profit = newOdds > 0 ? newStake * (newOdds/100) : newStake * (100/Math.abs(newOdds)); updates.payout = newStake + profit; } else if (newStatus === 'push') { updates.payout = newStake; } else if (newStatus === 'lost') { updates.payout = 0; } } const { error } = await supabase.from('bets').update(updates).eq('id', bet.id); if (!error) { setEditingId(null); setEditForm({}); const res = await fetch('/api/analytics', { headers: { 'Authorization': 'Bearer ' + (await supabase.auth.getSession()).data.session?.access_token } }); if (res.ok) { const d = await res.json(); setData(d); } } } catch {} setSavingId(null); } async function handleDelete() { if (!bet.id || !confirm('Delete this bet?')) return; await supabase.from('bets').delete().eq('id', bet.id); const res = await fetch('/api/analytics', { headers: { 'Authorization': 'Bearer ' + (await supabase.auth.getSession()).data.session?.access_token } }); if (res.ok) { const d = await res.json(); setData(d); } } return (<tr key={bet.id} style={{ background: isEditing ? '#0f1629' : rc, borderBottom: '1px solid #1e3a5f' }}><td style={{ padding: '8px', color: '#475569' }}>{bet.date}</td><td style={{ padding: '8px', color: '#94a3b8', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{bet.game}</td><td style={{ padding: '8px', color: '#e2e8f0', fontWeight: 'bold' }}>{bet.pick}</td><td style={{ padding: '4px 8px', minWidth: '60px' }}>{isEditing ? <input style={inputStyle} defaultValue={bet.odds} onChange={function(e) { setEditForm(function(f: any) { return {...f, odds: e.target.value}; }); }} /> : <span style={{ color: '#94a3b8' }}>{bet.odds > 0 ? '+' + bet.odds : bet.odds}</span>}</td><td style={{ padding: '4px 8px', minWidth: '70px' }}>{isEditing ? <input style={inputStyle} defaultValue={bet.stake} onChange={function(e) { setEditForm(function(f: any) { return {...f, stake: e.target.value}; }); }} /> : <span style={{ color: '#94a3b8' }}>{'$' + Number(bet.stake).toFixed(2)}</span>}</td><td style={{ padding: '4px 8px', minWidth: '80px' }}>{isEditing ? <select style={{...inputStyle, width: 'auto'}} defaultValue={bet.status} onChange={function(e) { setEditForm(function(f: any) { return {...f, status: e.target.value}; }); }}><option value='won'>WON</option><option value='lost'>LOST</option><option value='push'>PUSH</option></select> : <span style={{ color: bet.status === 'won' ? '#22c55e' : bet.status === 'lost' ? '#ef4444' : '#475569', fontWeight: 'bold', textTransform: 'uppercase' as const }}>{bet.status}</span>}</td><td style={{ padding: '8px', color: pc, fontWeight: 'bold' }}>{bet.pnl >= 0 ? '+$' : '-$'}{Math.abs(bet.pnl).toFixed(2)}</td><td style={{ padding: '4px 8px', whiteSpace: 'nowrap' as const }}>{!selectedArchive && (isEditing ? <span style={{ display: 'flex', gap: '4px' }}><button onClick={handleSave} disabled={isSaving} style={{ padding: '3px 8px', background: '#22c55e', border: 'none', color: '#000', borderRadius: '3px', cursor: 'pointer', fontSize: '10px', fontFamily: 'monospace', fontWeight: 'bold' }}>{isSaving ? '...' : 'SAVE'}</button><button onClick={function() { setEditingId(null); setEditForm({}); }} style={{ padding: '3px 6px', background: 'none', border: '1px solid #1e3a5f', color: '#475569', borderRadius: '3px', cursor: 'pointer', fontSize: '10px' }}>✕</button></span> : <span style={{ display: 'flex', gap: '4px' }}><button onClick={function() { setEditingId(bet.id); setEditForm({}); }} style={{ padding: '3px 6px', background: 'none', border: '1px solid #1e3a5f', color: '#475569', borderRadius: '3px', cursor: 'pointer', fontSize: '10px' }}>✎</button><button onClick={handleDelete} style={{ padding: '3px 6px', background: 'none', border: '1px solid #ef4444', color: '#ef4444', borderRadius: '3px', cursor: 'pointer', fontSize: '10px' }}>✕</button></span>)}</td></tr>); })}</tbody></table></div>
+                  <div style={{ overflowX: 'auto' as const }}><table style={{ width: '100%', borderCollapse: 'collapse' as const, fontSize: '11px' }}><thead><tr>{['Date','Game','Pick','Odds','Stake','Result','P&L',''].map(function(h) { return <th key={h} style={{ color: '#475569', textAlign: 'left' as const, padding: '6px 8px', borderBottom: '1px solid #1e3a5f', letterSpacing: '1px' }}>{h}</th>; })}</tr></thead><tbody>{recentBets.map(function(bet: any) { return <BetRow key={bet.id} bet={bet} selectedArchive={selectedArchive} onSaved={async function() { const res = await fetch('/api/analytics', { headers: { 'Authorization': 'Bearer ' + (await supabase.auth.getSession()).data.session?.access_token } }); if (res.ok) { const d = await res.json(); setData(d); } }} onDeleted={async function() { const res = await fetch('/api/analytics', { headers: { 'Authorization': 'Bearer ' + (await supabase.auth.getSession()).data.session?.access_token } }); if (res.ok) { const d = await res.json(); setData(d); } }} />; })}</tbody></table></div>
                 </div>
               )}
               {recentBets.length === 0 && <div style={{ background: '#0f1629', border: '1px solid #1e3a5f', borderRadius: '8px', padding: '40px', textAlign: 'center' as const, color: '#475569' }}><div style={{ fontSize: '32px', marginBottom: '12px' }}>📊</div><div style={{ fontSize: '14px', marginBottom: '4px' }}>No settled bets yet</div><div style={{ fontSize: '11px' }}>Log bets and settle them to see your analytics</div></div>}
