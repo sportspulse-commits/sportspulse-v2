@@ -623,6 +623,67 @@ export default function GamePanel({ venueId, venueName, team, gameId, sport, onC
                             const showDivider = !isSeasonAvg && starters.length > 0 && pi === starters.length;
                             return renderPlayerRow(p, pi, showDivider);
                           })}
+                          {!isSeasonAvg && !isNFL && allPlayers.length > 0 && (function() {
+                            const batters = isMLB ? allPlayers.filter(function(p: any) { return p.type === 'batter'; }) : allPlayers;
+                            const pitchers = isMLB ? allPlayers.filter(function(p: any) { return p.type === 'pitcher'; }) : [];
+                            function sumStat(players: any[], key: string) { return players.reduce(function(s: number, p: any) { const v = parseFloat(String(p[key] || '0').replace(/[^0-9.-]/g,'')); return s + (isNaN(v) ? 0 : v); }, 0); }
+                            function sumMakes(players: any[], key: string) { return players.reduce(function(s: number, p: any) { const parts = String(p[key] || '0-0').split('-'); return s + (parseInt(parts[0]) || 0); }, 0); }
+                            function sumAttempts(players: any[], key: string) { return players.reduce(function(s: number, p: any) { const parts = String(p[key] || '0-0').split('-'); return s + (parseInt(parts[1]) || 0); }, 0); }
+                            function avgStat(players: any[], key: string) { const vals = players.map(function(p: any) { return parseFloat(String(p[key] || '0').replace(/[^0-9.-]/g,'')); }).filter(function(v: number) { return !isNaN(v) && v > 0; }); return vals.length ? vals.reduce(function(a: number, b: number) { return a + b; }, 0) / vals.length : 0; }
+                            const labelStyle = { color: '#475569', fontSize: '9px', letterSpacing: '1px' };
+                            const totalsStyle = { display: 'grid', padding: '4px 16px', fontSize: '11px', borderTop: '2px solid #1e3a5f', gridTemplateColumns: gridCol, background: '#0a0e1a', marginTop: '2px' };
+                            const valStyle = { textAlign: 'right' as const, color: '#e2e8f0', fontWeight: 'bold' };
+                            const greenVal = { textAlign: 'right' as const, color: '#22c55e', fontWeight: 'bold' };
+                            const blueVal = { textAlign: 'right' as const, color: '#60a5fa', fontWeight: 'bold' };
+                            return (
+                              <div>
+                                {isNBA && <div style={totalsStyle}>
+                                  <span style={labelStyle}>TOT</span>
+                                  <span></span>
+                                  <span style={{ textAlign: 'right' as const, color: '#475569', fontSize: '10px' }}>-</span>
+                                  <span style={greenVal}>{sumStat(allPlayers,'pts')}</span>
+                                  <span style={{ textAlign: 'right' as const, fontSize: '10px' }}>{sumMakes(allPlayers,'fg') + '-' + sumAttempts(allPlayers,'fg')}</span>
+                                  <span style={{ textAlign: 'right' as const, fontSize: '10px' }}>{sumMakes(allPlayers,'threeP') + '-' + sumAttempts(allPlayers,'threeP')}</span>
+                                  <span style={valStyle}>{sumStat(allPlayers,'reb')}</span>
+                                  <span style={valStyle}>{sumStat(allPlayers,'ast')}</span>
+                                  <span style={valStyle}>-</span>
+                                </div>}
+                                {isNHL && <div style={totalsStyle}>
+                                  <span style={labelStyle}>TOT</span>
+                                  <span></span>
+                                  <span style={{ textAlign: 'right' as const, color: '#475569', fontSize: '10px' }}>-</span>
+                                  <span style={greenVal}>{sumStat(allPlayers,'g')}</span>
+                                  <span style={valStyle}>{sumStat(allPlayers,'a')}</span>
+                                  <span style={{ textAlign: 'right' as const, fontWeight: 'bold' }}>{sumStat(allPlayers,'pts')}</span>
+                                  <span style={valStyle}>{sumStat(allPlayers,'sog')}</span>
+                                  <span style={valStyle}>-</span>
+                                  <span style={{ textAlign: 'right' as const, color: '#475569' }}>{sumStat(allPlayers,'hits')}</span>
+                                </div>}
+                                {isMLB && batters.length > 0 && <div style={totalsStyle}>
+                                  <span style={labelStyle}>BAT</span>
+                                  <span></span>
+                                  <span style={{ textAlign: 'right' as const, fontSize: '10px' }}>{sumMakes(batters,'hab') + '-' + sumAttempts(batters,'hab')}</span>
+                                  <span style={valStyle}>{sumStat(batters,'r')}</span>
+                                  <span style={valStyle}>{sumStat(batters,'rbi')}</span>
+                                  <span style={greenVal}>{sumStat(batters,'hr')}</span>
+                                  <span style={valStyle}>{sumStat(batters,'k')}</span>
+                                  <span style={blueVal}>{avgStat(batters,'avgNum') > 0 ? avgStat(batters,'avgNum').toFixed(3) : '-'}</span>
+                                  <span style={valStyle}>-</span>
+                                </div>}
+                                {isMLB && pitchers.length > 0 && <div style={totalsStyle}>
+                                  <span style={labelStyle}>PIT</span>
+                                  <span></span>
+                                  <span style={valStyle}>{(function(){ return pitchers.reduce(function(s: number, p: any) { const ip = String(p.ip || '0'); const parts = ip.split('.'); return s + (parseInt(parts[0])||0) + ((parseInt(parts[1])||0)/3); }, 0).toFixed(1); })()}</span>
+                                  <span style={valStyle}>{sumStat(pitchers,'h')}</span>
+                                  <span style={valStyle}>{sumStat(pitchers,'er')}</span>
+                                  <span style={valStyle}>{sumStat(pitchers,'bb')}</span>
+                                  <span style={greenVal}>{sumStat(pitchers,'k')}</span>
+                                  <span style={blueVal}>-</span>
+                                  <span style={valStyle}>-</span>
+                                </div>}
+                              </div>
+                            );
+                          })()}
                         </div>
                       )}
                     </div>
