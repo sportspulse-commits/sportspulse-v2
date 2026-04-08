@@ -325,7 +325,7 @@ export default function GamePanel({ venueId, venueName, team, gameId, sport, onC
   const tabs: Array<'score' | 'overview' | 'odds' | 'ai'> = ['score', 'overview', 'odds', 'ai'];
 
   return (
-    <div style={{ position: 'fixed', right: 0, top: 0, height: '100%', width: '380px', background: '#0f1629', borderLeft: '1px solid #1e3a5f', zIndex: 1000, display: 'flex', flexDirection: 'column', fontFamily: 'monospace', color: '#e2e8f0' }}>
+    <div className="panel-right" style={{ position: 'fixed', right: 0, width: '380px', background: '#0f1629', borderLeft: '1px solid #1e3a5f', zIndex: 1000, display: 'flex', flexDirection: 'column', fontFamily: 'monospace', color: '#e2e8f0' }}>
 
       <div style={{ padding: '16px', borderBottom: '1px solid #1e3a5f' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>

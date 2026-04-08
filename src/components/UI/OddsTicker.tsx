@@ -172,7 +172,7 @@ export default function OddsTicker({ games, selectedDate, onGameSelect, onCollap
   const noOddsStyle: any = { color: '#475569' };
 
   return (
-    <div style={{ position: 'fixed', left: 0, top: 0, height: '100vh', width: collapsed ? '36px' : '300px', background: '#0a0e1a', borderRight: '1px solid #1e3a5f', zIndex: 998, display: 'flex', flexDirection: 'column', fontFamily: 'monospace', transition: 'width 0.2s ease', overflow: 'hidden' }}>
+    <div className="panel-left" style={{ position: 'fixed', left: 0, width: collapsed ? '36px' : '300px', background: '#0a0e1a', borderRight: '1px solid #1e3a5f', zIndex: 998, display: 'flex', flexDirection: 'column', fontFamily: 'monospace', transition: 'width 0.2s ease', overflow: 'hidden' }}>
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 10px', borderBottom: '1px solid #1e3a5f', minHeight: '44px' }}>
         {!collapsed && (
