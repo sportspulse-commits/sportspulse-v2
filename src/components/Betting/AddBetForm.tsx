@@ -25,6 +25,16 @@ export default function AddBetForm({ onBetAdded, defaultSportsbook = "DraftKings
   const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [ocrLoading, setOcrLoading] = useState(false);
+  const [ocrError, setOcrError] = useState('');
+  const [ocrGameId, setOcrGameId] = useState<string | null>(null);
+  const [ocrGameDate, setOcrGameDate] = useState<string>('');
+  const [ocrLeague, setOcrLeague] = useState<string>('');
+  const [ocrHomeTeam, setOcrHomeTeam] = useState<string>('');
+  const [ocrAwayTeam, setOcrAwayTeam] = useState<string>('');
+  const [ocrIsSettled, setOcrIsSettled] = useState<boolean>(false);
+  const [ocrResult, setOcrResult] = useState<string | null>(null);
+  const [ocrPayout, setOcrPayout] = useState<number | null>(null);
   const [oddsMap, setOddsMap] = useState<Record<string, any>>({});
 
   useEffect(function() { setSportsbook(defaultSportsbook); }, [defaultSportsbook]);
@@ -89,46 +99,172 @@ export default function AddBetForm({ onBetAdded, defaultSportsbook = "DraftKings
   const potentialPayout = (!isNaN(oddsNum) && !isNaN(stakeNum) && stakeNum > 0) ? calcProfit(stakeNum, oddsNum) : 0;
 
   function resetForm() {
-    setSelectedGameId("");
-    setIsManualMode(false);
-    setManualBetName("");
-    setSelection("");
-    setOdds("");
-    setStake("");
-    setNotes("");
-    setBetType("moneyline");
-    setError("");
+    setSelectedGameId(''); setIsManualMode(false); setManualBetName(''); setSelection(''); setOdds(''); setStake(''); setNotes(''); setBetType('moneyline'); setError(''); setOcrError('');
+    setOcrGameId(null); setOcrGameDate(''); setOcrLeague(''); setOcrHomeTeam(''); setOcrAwayTeam(''); setOcrIsSettled(false); setOcrResult(null); setOcrPayout(null);
   }
+  async function handleOCR(file: File) {
+    setOcrLoading(true); setOcrError('');
+    try {
+      // Step 1: Compress image to max 800px to minimize API tokens
+      const compressedBase64 = await new Promise<{ base64: string; mediaType: string }>(function(resolve, reject) {
+        const img = new Image();
+        const objectUrl = URL.createObjectURL(file);
+        img.onload = function() {
+          URL.revokeObjectURL(objectUrl);
+          const maxDim = 800;
+          const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.round(img.width * scale);
+          canvas.height = Math.round(img.height * scale);
+          const ctx = canvas.getContext('2d');
+          if (!ctx) { reject(new Error('No canvas context')); return; }
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+          resolve({ base64: dataUrl.split(',')[1], mediaType: 'image/jpeg' });
+        };
+        img.onerror = reject;
+        img.src = objectUrl;
+      });
+
+      // Step 2: Extract bet details via Claude Vision
+      const ocrRes = await fetch('/api/ocr', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ base64: compressedBase64.base64, mediaType: compressedBase64.mediaType })
+      });
+      if (!ocrRes.ok) { setOcrError('Could not read bet slip. Please fill in manually.'); setOcrLoading(false); return; }
+      const ocrData = await ocrRes.json();
+      if (ocrData.error) { setOcrError(ocrData.error); setOcrLoading(false); return; }
+      const parsed = ocrData.result;
+
+      // Step 3: Populate form fields from OCR result
+      if (parsed.betType) setBetType(parsed.betType);
+      if (parsed.selection) setSelection(parsed.selection);
+      if (parsed.odds !== undefined) setOdds(parsed.odds > 0 ? '+' + parsed.odds : String(parsed.odds));
+      if (parsed.stake !== undefined) setStake(String(parsed.stake));
+      if (parsed.sportsbook) setSportsbook(parsed.sportsbook);
+
+      // Step 4: Match game via ESPN to get gameId
+      const matchRes = await fetch('/api/ocr/match', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          homeTeam: parsed.homeTeam || '',
+          awayTeam: parsed.awayTeam || '',
+          league: parsed.league || '',
+          rawDate: parsed.rawDate || '',
+          selection: parsed.selection || '',
+        })
+      });
+      const matchData = matchRes.ok ? await matchRes.json() : null;
+
+      // Step 5: Set game info — use matched ESPN game or fall back to manual
+      if (matchData && matchData.matched && matchData.gameId) {
+        // Found ESPN game — use real game data
+        const gameName = matchData.awayTeam + ' @ ' + matchData.homeTeam;
+        setIsManualMode(true);
+        setSelectedGameId('other');
+        setManualBetName(gameName);
+        // Store gameId and date for submission — use hidden state
+        setOcrGameId(matchData.gameId);
+        setOcrGameDate(matchData.gameDate);
+        setOcrLeague(matchData.league);
+        setOcrHomeTeam(matchData.homeTeam);
+        setOcrAwayTeam(matchData.awayTeam);
+      } else {
+        // No ESPN match — use OCR team names directly
+        const gameName = parsed.awayTeam && parsed.homeTeam
+          ? parsed.awayTeam + ' @ ' + parsed.homeTeam
+          : parsed.homeTeam || parsed.awayTeam || 'Unknown Game';
+        setIsManualMode(true);
+        setSelectedGameId('other');
+        setManualBetName(gameName);
+        setOcrGameId(null);
+        const parsedDate = parsed.rawDate ? parsed.rawDate : new Date().toISOString().slice(0, 10);
+        setOcrGameDate(parsedDate);
+        setOcrLeague(parsed.league || '');
+        setOcrHomeTeam(parsed.homeTeam || '');
+        setOcrAwayTeam(parsed.awayTeam || '');
+      }
+
+      // Step 6: If already settled, pre-fill result for immediate save
+      if (parsed.isSettled && parsed.result) {
+        setOcrIsSettled(true);
+        setOcrResult(parsed.result);
+        setOcrPayout(parsed.payout || null);
+        setNotes((notes ? notes + ' | ' : '') + 'Auto-settled from bet slip scan');
+      } else {
+        setOcrIsSettled(false);
+        setOcrResult(null);
+        setOcrPayout(null);
+      }
+
+    } catch(e) {
+      console.error('OCR error:', e);
+      setOcrError('Could not read bet slip. Please fill in manually.');
+    }
+    setOcrLoading(false);
+  }
+
 
   async function handleSubmit() {
     if (submitting) return;
-    setSubmitting(false);
-    if (!isManualMode && !selectedGame) { setError("Select a game"); return; }
-    if (isManualMode && !manualBetName.trim()) { setError("Enter a bet name"); return; }
-    if (!selection.trim()) { setError("Enter your pick"); return; }
-    if (isNaN(oddsNum) || (oddsNum > -100 && oddsNum < 100)) { setError("Odds must be +100 or greater, or -100 or less (e.g. -110, +150)"); return; }
-    if (isNaN(stakeNum) || stakeNum <= 0) { setError("Enter a valid stake greater than zero"); return; }
-    setError(""); setSubmitting(true);
+    setSubmitting(true);
+    if (!isManualMode && !selectedGame) { setError('Select a game'); setSubmitting(false); return; }
+    if (isManualMode && !manualBetName.trim()) { setError('Enter a bet name'); setSubmitting(false); return; }
+    if (!selection.trim()) { setError('Enter your pick'); setSubmitting(false); return; }
+    if (isNaN(oddsNum) || (oddsNum > -100 && oddsNum < 100)) { setError('Odds must be +100 or greater, or -100 or less (e.g. -110, +150)'); setSubmitting(false); return; }
+    if (isNaN(stakeNum) || stakeNum <= 0) { setError('Enter a valid stake greater than zero'); setSubmitting(false); return; }
+    setError('');
 
-    const league = (isManualMode ? "NBA" : normalizeLeague(selectedGame!.league)) as BetLeague;
-    const gameName = isManualMode ? manualBetName.trim() : (selectedGame!.awayTeam + " @ " + selectedGame!.homeTeam);
+    // Determine league — use OCR league if available, else derive from game
+    const rawLeague = ocrLeague || (isManualMode ? 'NBA' : normalizeLeague(selectedGame!.league));
+    const league = rawLeague as BetLeague;
+
+    // Determine game names — prefer OCR-matched ESPN data
+    const homeTeam = ocrHomeTeam || (isManualMode ? manualBetName.trim() : selectedGame!.homeTeam);
+    const awayTeam = ocrAwayTeam || (isManualMode ? '' : selectedGame!.awayTeam);
+    const gameName = awayTeam ? awayTeam + ' @ ' + homeTeam : homeTeam;
+
+    // Determine gameId — prefer OCR-matched, then selected game
+    const gameId = ocrGameId || (isManualMode ? null : selectedGame!.id);
+
+    // Determine game date — prefer OCR date, then game time, then today
+    const gameDate = ocrGameDate ||
+      (isManualMode ? new Date().toISOString().slice(0, 10) :
+      (selectedGame!.gameTime ? selectedGame!.gameTime.slice(0, 10) : new Date().toISOString().slice(0, 10)));
+
+    // Determine status and payout — pre-settle if OCR detected result
+    let status: 'open' | 'won' | 'lost' | 'push' = 'open';
+    let payout: number | undefined = undefined;
+    if (ocrIsSettled && ocrResult) {
+      status = ocrResult as 'won' | 'lost' | 'push';
+      if (ocrResult === 'won') {
+        // Use OCR payout if available, otherwise calculate
+        payout = ocrPayout || (oddsNum > 0 ? stakeNum + stakeNum * (oddsNum / 100) : stakeNum + stakeNum * (100 / Math.abs(oddsNum)));
+      } else if (ocrResult === 'push') {
+        payout = stakeNum;
+      } else {
+        payout = 0;
+      }
+    }
 
     const betPayload = {
       league,
       sport: league,
-      homeTeam: isManualMode ? manualBetName.trim() : selectedGame!.homeTeam,
-      awayTeam: isManualMode ? "" : selectedGame!.awayTeam,
+      homeTeam,
+      awayTeam,
       game: gameName,
       betType: betType as BetType,
       selection: selection.trim(),
       odds: oddsNum,
       stake: stakeNum,
       sportsbook,
-      status: "open" as const,
-      payout: undefined,
+      status,
+      payout,
       notes: notes.trim(),
-      gameId: isManualMode ? null : selectedGame!.id,
-      gameDate: isManualMode ? new Date().toISOString().slice(0, 10) : (selectedGame!.gameTime ? selectedGame!.gameTime.slice(0, 10) : new Date().toISOString().slice(0, 10)),
+      gameId,
+      gameDate,
     };
 
     const { data: { session } } = await supabase.auth.getSession();
@@ -139,9 +275,10 @@ export default function AddBetForm({ onBetAdded, defaultSportsbook = "DraftKings
     } else {
       saveBet(betPayload);
       resetForm();
-      setError("Not logged in - bet saved locally only. Log in to save permanently.");
+      setError('Not logged in - bet saved locally only. Log in to save permanently.');
       onBetAdded();
     }
+    setSubmitting(false);
   }
 
   const inputStyle = { width: "100%", background: "#0a0e1a", border: "1px solid #1e3a5f", color: "#e2e8f0", padding: "6px 8px", borderRadius: "4px", fontFamily: "monospace", fontSize: "12px", boxSizing: "border-box" as const };
@@ -156,7 +293,8 @@ export default function AddBetForm({ onBetAdded, defaultSportsbook = "DraftKings
   }
 
   return React.createElement("div", { style: { padding: "12px 16px" } },
-    React.createElement("div", { style: { color: "#22c55e", fontSize: "11px", letterSpacing: "2px", marginBottom: "12px", fontWeight: "bold" } }, "LOG A BET"),
+    React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' } }, React.createElement('div', { style: { color: '#22c55e', fontSize: '11px', letterSpacing: '2px', fontWeight: 'bold' } }, 'LOG A BET'), React.createElement('label', { style: { display: 'flex', alignItems: 'center', gap: '4px', cursor: ocrLoading ? 'wait' : 'pointer', background: '#0f1629', border: '1px solid #1e3a5f', borderRadius: '4px', padding: '4px 8px', fontSize: '10px', color: '#60a5fa', fontFamily: 'monospace', letterSpacing: '1px' } }, ocrLoading ? String.fromCodePoint(0x23F3) + ' READING...' : String.fromCodePoint(0x1F4F7) + ' SCAN SLIP', React.createElement('input', { type: 'file', accept: 'image/*', style: { display: 'none' }, onChange: function(e) { const f = e.target.files && e.target.files[0]; if (f) handleOCR(f); e.target.value = ''; } }))),
+    ocrError ? React.createElement('div', { style: { color: '#f59e0b', fontSize: '10px', marginBottom: '8px', padding: '6px 8px', background: '#1a0f00', borderRadius: '4px', border: '1px solid #f59e0b' } }, ocrError) : null,
 
     React.createElement("label", { style: labelStyle }, "Game"),
     React.createElement("select", {

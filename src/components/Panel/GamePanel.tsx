@@ -150,7 +150,7 @@ export default function GamePanel({ venueId, venueName, team, gameId, sport, onC
 
   const [playerStats, setPlayerStats] = useState<any>(null);
 
-  const [statsView, setStatsView] = useState<'home' | 'away'>('home');
+  const [statsView, setStatsView] = useState<'home' | 'away'>('away');
   // Player stats fetch - triggers on game load (pre-game shows season avgs, live/final shows boxscore)
   useEffect(function() {
     if (!gameId || !sport || !game) return;

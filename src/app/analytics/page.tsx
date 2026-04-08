@@ -53,24 +53,34 @@ function computeStats(bets: any[]) {
 }
 
 function computeChartData(bets: any[]) {
-  const normalized = bets.map(normalizeBet);
+  // Sort RAW bets chronologically (oldest first) by settled_at
+  const sortedRaw = [...bets].sort(function(a, b) {
+    const da = a.settled_at || a.created_at || a.game_date || a.createdAt || a.date || '';
+    const db = b.settled_at || b.created_at || b.game_date || b.createdAt || b.date || '';
+    return da.localeCompare(db);
+  });
+  const normalized = sortedRaw.map(normalizeBet);
   const settled = normalized.filter(function(b) { return b.status === 'won' || b.status === 'lost' || b.status === 'push'; });
-  const sorted = [...settled].sort(function(a, b) { return (a.date || '').localeCompare(b.date || ''); });
   let r = 0;
-  return sorted.map(function(b, idx) {
+  return settled.map(function(b, idx) {
     r += b.net_profit;
     return { idx: idx + 1, date: b.date, pnl: Math.round(r * 100) / 100, gain: Math.round(b.net_profit * 100) / 100, game: b.game, pick: b.pick, odds: b.odds || 0, stake: b.stake, result: b.status };
   });
 }
 
 function computeRecentBets(bets: any[], limit = 50) {
-  const normalized = bets.map(normalizeBet);
+  const sortedRaw = [...bets].sort(function(a, b) {
+    const da = a.settled_at || a.created_at || a.game_date || a.createdAt || a.date || '';
+    const db = b.settled_at || b.created_at || b.game_date || b.createdAt || b.date || '';
+    return db.localeCompare(da);
+  });
+  const normalized = sortedRaw.map(normalizeBet);
   const settled = normalized.filter(function(b) { return b.status === 'won' || b.status === 'lost' || b.status === 'push'; });
-  return [...settled].sort(function(a, b) { return b.date.localeCompare(a.date); }).slice(0, limit).map(function(b) {
-    return { id: b.id || Math.random().toString(), date: b.date, game: b.game, pick: b.pick, odds: b.odds || 0, stake: b.stake, status: b.status, pnl: Math.round(b.net_profit * 100) / 100 };
+  return settled.slice(0, limit).map(function(b) {
+    const rawSettledAt = b.settled_at || b.created_at || b.game_date || b.createdAt || b.date || '';
+    return { id: b.id || Math.random().toString(), date: b.date, settledAt: rawSettledAt, game: b.game, pick: b.pick, odds: b.odds || 0, stake: b.stake, status: b.status, pnl: Math.round(b.net_profit * 100) / 100 };
   });
 }
-
 
 function BetRow({ bet, selectedArchive, onSaved, onDeleted }: { bet: any; selectedArchive: any; onSaved: () => void; onDeleted: () => void }) {
   const [isEditing, setIsEditing] = useState(false);
@@ -112,7 +122,7 @@ function BetRow({ bet, selectedArchive, onSaved, onDeleted }: { bet: any; select
 
   return (
     <tr style={{ background: isEditing ? '#0f1629' : rc, borderBottom: '1px solid #1e3a5f' }}>
-      <td style={{ padding: '8px', color: '#475569' }}>{bet.date}</td>
+      <td style={{ padding: '8px', color: '#475569', fontSize: '10px', whiteSpace: 'nowrap' as const }}>{bet.settledAt ? new Date(bet.settledAt).toLocaleString([], { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }) : bet.date}</td>
       <td style={{ padding: '8px', color: '#94a3b8', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{bet.game}</td>
       <td style={{ padding: '8px', color: '#e2e8f0', fontWeight: 'bold' }}>{bet.pick}</td>
       <td style={{ padding: '4px 8px', minWidth: '60px' }}>{isEditing ? <input style={inputStyle} value={odds} onChange={function(e) { setOdds(e.target.value); }} /> : <span style={{ color: '#94a3b8' }}>{bet.odds > 0 ? '+' + bet.odds : bet.odds}</span>}</td>
@@ -154,9 +164,9 @@ export default function AnalyticsPage() {
   const allArchiveBets = archives.flatMap(function(a: any) { return a.bets || []; });
   const currentBetsRaw = (data?.recentBets || []).map(function(b: any) { return { ...b, net_profit: b.pnl, bet_pick: b.pick, settled_at: b.date }; });
 
-  const s = selectedArchive ? computeStats(selectedArchive.bets || []) : viewMode === 'alltime' ? computeStats([...allArchiveBets, ...currentBetsRaw]) : data?.summary;
-  const chartData = selectedArchive ? computeChartData(selectedArchive.bets || []) : viewMode === 'alltime' ? computeChartData([...allArchiveBets, ...currentBetsRaw]) : (data?.pnlOverTime || []);
-  const recentBets = selectedArchive ? computeRecentBets(selectedArchive.bets || []) : viewMode === 'alltime' ? computeRecentBets([...allArchiveBets, ...currentBetsRaw]) : (data?.recentBets || []);
+  const s = selectedArchive ? computeStats(selectedArchive.bets || []) : viewMode === 'alltime' ? { ...computeStats([...allArchiveBets, ...currentBetsRaw]), streak: data?.summary?.streak, streakType: data?.summary?.streakType } : data?.summary;
+  const recentBets = selectedArchive ? computeRecentBets(selectedArchive.bets || []) : (data?.recentBets || []);
+  const chartData = (function() { const src = [...recentBets].reverse(); let r = 0; return src.map(function(b: any, idx: number) { r += b.pnl; return { idx: idx + 1, date: b.date, pnl: Math.round(r * 100) / 100, gain: b.pnl, game: b.game, pick: b.pick, odds: b.odds || 0, stake: b.stake, result: b.status }; }); })();
 
   const leagueData = (selectedArchive || viewMode === 'alltime') ? (function() {
     const src = selectedArchive ? (selectedArchive.bets || []) : [...allArchiveBets, ...currentBetsRaw];
@@ -167,8 +177,8 @@ export default function AnalyticsPage() {
       const lnp = lb.filter(function(b: any) { return b.status !== 'push'; });
       const lw = lb.filter(function(b: any) { return b.status === 'won'; });
       return { league, winRate: lnp.length > 0 ? Math.round(lw.length / lnp.length * 100) : 0 };
-    });
-  })() : data?.byLeague || [];
+    }).sort(function(a: any, b: any) { return b.winRate !== a.winRate ? b.winRate - a.winRate : a.league.localeCompare(b.league); });
+  })() : (data?.byLeague || []).slice().sort(function(a: any, b: any) { return b.winRate !== a.winRate ? b.winRate - a.winRate : a.league.localeCompare(b.league); });
 
   const typeData = (selectedArchive || viewMode === 'alltime') ? (function() {
     const src = selectedArchive ? (selectedArchive.bets || []) : [...allArchiveBets, ...currentBetsRaw];
@@ -179,8 +189,8 @@ export default function AnalyticsPage() {
       const tnp = tb.filter(function(b: any) { return b.status !== 'push'; });
       const tw = tb.filter(function(b: any) { return b.status === 'won'; });
       return { type, winRate: tnp.length > 0 ? Math.round(tw.length / tnp.length * 100) : 0 };
-    });
-  })() : data?.byBetType || [];
+    }).sort(function(a: any, b: any) { return b.winRate !== a.winRate ? b.winRate - a.winRate : a.type.localeCompare(b.type); });
+  })() : (data?.byBetType || []).slice().sort(function(a: any, b: any) { return b.winRate !== a.winRate ? b.winRate - a.winRate : a.type.localeCompare(b.type); });
 
   const pnlColor = s?.pnl >= 0 ? '#22c55e' : '#ef4444';
   const roiColor = s?.roi >= 0 ? '#22c55e' : '#ef4444';
@@ -244,7 +254,7 @@ export default function AnalyticsPage() {
               {recentBets.length > 0 && (
                 <div style={{ background: '#0f1629', border: '1px solid #1e3a5f', borderRadius: '8px', padding: '20px' }}>
                   <div style={{ color: '#94a3b8', fontSize: '10px', letterSpacing: '2px', marginBottom: '16px' }}>{selectedArchive ? 'BETS SETTLED DURING ' + selectedArchive.title.toUpperCase() : viewMode === 'alltime' ? 'ALL TIME SETTLED BETS' : 'RECENT SETTLED BETS'}</div>
-                  <div style={{ overflowX: 'auto' as const }}><table style={{ width: '100%', borderCollapse: 'collapse' as const, fontSize: '11px' }}><thead><tr>{['Date','Game','Pick','Odds','Stake','Result','P&L',''].map(function(h) { return <th key={h} style={{ color: '#475569', textAlign: 'left' as const, padding: '6px 8px', borderBottom: '1px solid #1e3a5f', letterSpacing: '1px' }}>{h}</th>; })}</tr></thead><tbody>{recentBets.map(function(bet: any) { return <BetRow key={bet.id} bet={bet} selectedArchive={selectedArchive} onSaved={async function() { const res = await fetch('/api/analytics', { headers: { 'Authorization': 'Bearer ' + (await supabase.auth.getSession()).data.session?.access_token } }); if (res.ok) { const d = await res.json(); setData(d); } }} onDeleted={async function() { const res = await fetch('/api/analytics', { headers: { 'Authorization': 'Bearer ' + (await supabase.auth.getSession()).data.session?.access_token } }); if (res.ok) { const d = await res.json(); setData(d); } }} />; })}</tbody></table></div>
+                  <div style={{ overflowX: 'auto' as const }}><table style={{ width: '100%', borderCollapse: 'collapse' as const, fontSize: '11px' }}><thead><tr>{['Settled','Game','Pick','Odds','Stake','Result','P\&L',''].map(function(h) { return <th key={h} style={{ color: '#475569', textAlign: 'left' as const, padding: '6px 8px', borderBottom: '1px solid #1e3a5f', letterSpacing: '1px' }}>{h}</th>; })}</tr></thead><tbody>{recentBets.map(function(bet: any) { return <BetRow key={bet.id} bet={bet} selectedArchive={selectedArchive} onSaved={async function() { const res = await fetch('/api/analytics', { headers: { 'Authorization': 'Bearer ' + (await supabase.auth.getSession()).data.session?.access_token } }); if (res.ok) { const d = await res.json(); setData(d); } }} onDeleted={async function() { const res = await fetch('/api/analytics', { headers: { 'Authorization': 'Bearer ' + (await supabase.auth.getSession()).data.session?.access_token } }); if (res.ok) { const d = await res.json(); setData(d); } }} />; })}</tbody></table></div>
                 </div>
               )}
               {recentBets.length === 0 && <div style={{ background: '#0f1629', border: '1px solid #1e3a5f', borderRadius: '8px', padding: '40px', textAlign: 'center' as const, color: '#475569' }}><div style={{ fontSize: '32px', marginBottom: '12px' }}>📊</div><div style={{ fontSize: '14px', marginBottom: '4px' }}>No settled bets yet</div><div style={{ fontSize: '11px' }}>Log bets and settle them to see your analytics</div></div>}

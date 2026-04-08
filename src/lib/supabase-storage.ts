@@ -46,7 +46,8 @@ export async function saveSupabaseBet(bet: any): Promise<Bet | null> {
       sportsbook: bet.sportsbook || 'DraftKings',
       odds: bet.odds || 0,
       stake: bet.stake || 0,
-      status: 'pending',
+      status: bet.status === 'won' || bet.status === 'lost' || bet.status === 'push' ? bet.status : 'pending',
+      payout: bet.payout !== undefined ? bet.payout : null,
       notes: bet.notes || null,
     }])
     .select()
